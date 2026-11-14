@@ -2,11 +2,12 @@
 #
 # AI-DAST-ING installer — one-line install of the latest release binary.
 #
-#   curl -sSL https://raw.githubusercontent.com/ai-dast-ing/ai-dast-ing/main/install.sh | bash
+#   curl -sSL https://raw.githubusercontent.com/barhaterahul/AI-DAST/main/install.sh | bash
 #
 # What it does:
 #   1. Detects your OS and CPU architecture.
-#   2. Downloads the matching prebuilt binary from the latest GitHub Release.
+#   2. Downloads the matching prebuilt binary from the latest GitHub Release
+#      and verifies it against the release's SHA256SUMS (aborts on mismatch).
 #   3. Installs it to /usr/local/bin (falls back to ~/.local/bin without sudo).
 #
 # Env overrides:
@@ -15,7 +16,7 @@
 #
 set -euo pipefail
 
-REPO="ai-dast-ing/ai-dast-ing"
+REPO="barhaterahul/AI-DAST"
 BINARY="ai-dast-ing"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -63,6 +64,20 @@ info "Downloading ${URL}"
 if ! curl -fSL --progress-bar "$URL" -o "$TMP/$BINARY"; then
   die "Download failed. This release may not include a ${OS}/${ARCH} binary — check https://github.com/${REPO}/releases"
 fi
+
+# ── Verify ──────────────────────────────────────────────────────────────────
+info "Verifying SHA256 checksum…"
+curl -fsSL "https://github.com/${REPO}/releases/download/${VERSION}/SHA256SUMS" -o "$TMP/SHA256SUMS" \
+  || die "Could not download SHA256SUMS for ${VERSION}; refusing to install an unverified binary."
+EXPECTED="$(awk -v n="$ASSET" '$2 == n || $2 == "*" n { print tolower($1); exit }' "$TMP/SHA256SUMS")"
+[[ "$EXPECTED" =~ ^[0-9a-f]{64}$ ]] || die "SHA256SUMS has no valid entry for ${ASSET}; refusing to install."
+if command -v sha256sum >/dev/null 2>&1; then
+  ACTUAL="$(sha256sum "$TMP/$BINARY" | awk '{print $1}')"
+else
+  ACTUAL="$(shasum -a 256 "$TMP/$BINARY" | awk '{print $1}')"
+fi
+[[ "$ACTUAL" == "$EXPECTED" ]] || die "Checksum mismatch for ${ASSET} (got ${ACTUAL}, want ${EXPECTED}); refusing to install."
+ok "Checksum verified"
 chmod +x "$TMP/$BINARY"
 
 # ── Install ─────────────────────────────────────────────────────────────────
@@ -92,5 +107,3 @@ echo "    ${DEST}/${BINARY} --setup"
 echo ""
 echo "  The wizard configures your provider, model, and API key, then can launch"
 echo "  the dashboard. Settings are stored privately in ~/.ai-dast-ing.env."
-echo ""
-echo "  Prefer zero setup? Try the hosted version: https://www.ai-dast-ing.com"

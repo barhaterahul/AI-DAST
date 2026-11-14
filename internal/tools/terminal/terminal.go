@@ -1378,15 +1378,15 @@ func commandEnv(homeDir, goPath, workDir string, rateRuntime requestRateRuntime)
 	}
 
 	replace := map[string]bool{
-		"PATH":                   true,
-		"GOPATH":                 true,
-		"HOME":                   true,
-		"TMPDIR":                 true,
-		"XDG_CACHE_HOME":         true,
-		"XDG_CONFIG_HOME":        true,
-		"XDG_DATA_HOME":          true,
+		"PATH":                    true,
+		"GOPATH":                  true,
+		"HOME":                    true,
+		"TMPDIR":                  true,
+		"XDG_CACHE_HOME":          true,
+		"XDG_CONFIG_HOME":         true,
+		"XDG_DATA_HOME":           true,
 		"AIDASTING_WORKSPACE":     true,
-		"PYTHONPATH":             true,
+		"PYTHONPATH":              true,
 		"AIDASTING_RATE_LOCK_DIR": true,
 		"AIDASTING_RATE_DELAY_MS": true,
 	}
@@ -1417,10 +1417,10 @@ func commandEnv(homeDir, goPath, workDir string, rateRuntime requestRateRuntime)
 		if replace[key] {
 			continue
 		}
-		// Catch-all: strip any AIDASTING_* variable we didn't explicitly
-		// allow-list above. The terminal tool only re-adds the three
-		// safe ones (WORKSPACE, RATE_LOCK_DIR, RATE_DELAY_MS).
-		if strings.HasPrefix(key, "AIDASTING_") {
+		// Catch-all: strip any AIDASTING_* (or legacy XALGORIX_*) variable
+		// we didn't explicitly allow-list above. The terminal tool only
+		// re-adds the three safe ones (WORKSPACE, RATE_LOCK_DIR, RATE_DELAY_MS).
+		if tools.OperatorNamespaceKey(key) {
 			continue
 		}
 		// Operator secrets outside the AIDASTING_* namespace (integration tokens,

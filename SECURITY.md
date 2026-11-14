@@ -2,7 +2,8 @@
 
 ## Reporting a vulnerability
 
-Please email security@ai-dast-ing.com with details. We acknowledge reports
+Please report privately through GitHub's private vulnerability reporting:
+https://github.com/barhaterahul/AI-DAST/security/advisories/new We acknowledge reports
 within two business days and aim to ship a fix or mitigation on a
 severity-driven schedule. Do not file public GitHub issues for
 suspected vulnerabilities.

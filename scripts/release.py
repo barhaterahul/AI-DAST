@@ -47,8 +47,8 @@ import re
 import subprocess
 import tempfile
 
-REPO_DEFAULT = "ai-dast-ing/ai-dast-ing"
-ORIGIN_URL = "https://github.com/ai-dast-ing/ai-dast-ing.git"
+REPO_DEFAULT = "barhaterahul/AI-DAST"
+ORIGIN_URL = "https://github.com/barhaterahul/AI-DAST.git"
 PLATFORMS = [("linux", "amd64"), ("linux", "arm64"), ("darwin", "amd64"), ("darwin", "arm64")]
 FILE_ARCH = {
     ("linux", "amd64"): "x86-64",

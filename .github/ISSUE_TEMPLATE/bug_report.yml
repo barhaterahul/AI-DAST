@@ -9,7 +9,7 @@ body:
         Thanks for taking the time to file a bug! Please search existing issues first to avoid duplicates.
 
         ⚠️ **Do not report security vulnerabilities here.** Follow the process in
-        [SECURITY.md](https://github.com/ai-dast-ing/ai-dast-ing/security/policy).
+        [SECURITY.md](https://github.com/barhaterahul/AI-DAST/security/policy).
   - type: textarea
     id: what-happened
     attributes:
@@ -52,7 +52,6 @@ body:
         - Prebuilt binary (installer)
         - Docker
         - Built from source
-        - Hosted (www.ai-dast-ing.com)
     validations:
       required: true
   - type: input
