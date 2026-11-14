@@ -303,14 +303,14 @@ func copilotExchangeError(status int, githubToken string, body []byte) error {
 	if len(snippet) > 300 {
 		snippet = snippet[:300] + "…"
 	}
-	switch {
-	case status == http.StatusUnauthorized, status == http.StatusForbidden:
+	switch status {
+	case http.StatusUnauthorized, http.StatusForbidden:
 		hint := "the GitHub credential was rejected"
 		if strings.HasPrefix(strings.TrimSpace(githubToken), "ghp_") {
 			hint = "classic ghp_ personal access tokens are not supported by Copilot — use device-code OAuth or a fine-grained github_pat_ token"
 		}
 		return fmt.Errorf("copilot: token exchange %d — %s (ensure the account has an active Copilot subscription): %s", status, hint, snippet)
-	case status == http.StatusNotFound:
+	case http.StatusNotFound:
 		return fmt.Errorf("copilot: token exchange 404 — no Copilot token could be minted for this credential. For a fine-grained PAT: it must be owned by your personal account (not an org) AND granted the \"Copilot Requests\" permission (off by default), and the account needs an active Copilot subscription: %s", snippet)
 	default:
 		return fmt.Errorf("copilot: token exchange returned HTTP %d: %s", status, snippet)
