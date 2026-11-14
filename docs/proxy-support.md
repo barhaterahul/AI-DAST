@@ -2,7 +2,7 @@
 
 AI-DAST-ING supports **HTTP**, **HTTPS**, and **SOCKS5** upstream proxies for its built-in HTTP tools. Proxy-required mode also routes its browser and gives proxy-aware terminal/Python programs a loopback HTTP proxy. An HTTP/SOCKS5 proxy is not a whole-machine VPN: arbitrary subprocesses, raw sockets, ICMP, and UDP may bypass proxy environment variables. Enforce an OS/container outbound policy if the operator needs a guarantee that no direct target connection can leave the host.
 
-`scanner2.ai-dast-ing.com` or any other dashboard DNS name is **inbound** configuration. Do not change its A/AAAA record to a purchased proxy IP; the proxy is only for outbound connections from the scanner.
+`scanner2.example.com` or any other dashboard DNS name is **inbound** configuration. Do not change its A/AAAA record to a purchased proxy IP; the proxy is only for outbound connections from the scanner.
 
 ## Quick Start
 
@@ -36,7 +36,7 @@ export AIDASTING_PROXY_URL="http://USER:PASS@PROXY_HOST:PROXY_PORT"
 
 Replace the placeholders with the proxy provider's actual host, port, and credentials. URL-encode reserved characters in the username/password and keep the environment file private. This mode requires exactly one `AIDASTING_PROXY_URL`; it does not rotate proxies within a scan. The browser and proxy-aware shell tools use an unauthenticated loopback bridge, so the upstream credentials are not placed in Chromium process arguments. The bridge never falls back to a direct target connection. Missing/invalid proxy configuration prevents startup; an unreachable upstream causes requests to fail.
 
-Restart the scanner after changing proxy settings in the environment file or dashboard; active scans keep their existing process/network state. Validate the observed egress IP against an endpoint you control before starting an authorized scan. Keep the public `scanner2.ai-dast-ing.com` DNS and inbound Cloudflare configuration unchanged.
+Restart the scanner after changing proxy settings in the environment file or dashboard; active scans keep their existing process/network state. Validate the observed egress IP against an endpoint you control before starting an authorized scan. Keep the public `scanner2.example.com` DNS and inbound Cloudflare configuration unchanged.
 
 This is **not** a complete no-leak mode for `terminal_execute` or `python_action`: their code may invoke tools that ignore `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` or use raw network protocols. Run the scanner under an independent egress policy that allows target-bound traffic only through the upstream proxy, or disable such tools for the proxy-required workload. Test the policy against a target you control before production use. Do not assume the existing proxy environment variables alone provide this boundary.
 

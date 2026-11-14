@@ -5,8 +5,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/weppos/publicsuffix-go/publicsuffix"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/reporting"
+	"github.com/weppos/publicsuffix-go/publicsuffix"
 )
 
 // wildcardTarget is the normalized view of one user-supplied wildcard-scan

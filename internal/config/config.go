@@ -264,7 +264,7 @@ type Config struct {
 
 	// Out-of-band (OAST) callback infrastructure for confirming blind
 	// vulnerabilities (blind SSRF/RCE/XSS/XXE). OOBPublicURL is the address
-	// targets can reach (e.g. https://oob.ai-dast-ing.com), OOBPort is the local
+	// targets can reach (e.g. https://oob.example.com), OOBPort is the local
 	// listener port. OOB is enabled only when OOBPublicURL is set.
 	// AIDASTING_OOB_PUBLIC_URL / AIDASTING_OOB_PORT.
 	OOBPublicURL string
@@ -435,18 +435,23 @@ func Get() *Config {
 // load reads all configuration from environment variables with defaults.
 // It first loads env files so config works even under sudo.
 func load() *Config {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		log.Printf("Warning: failed to get home directory: %v (using /root)", err)
+		home = "/root"
+	}
+	// Pre-rename (xalgorix) env files load first so the current files win.
+	for _, p := range legacyEnvFiles(home) {
+		loadEnvFile(p)
+	}
 	// Load env files (lower priority first, later files override)
 	loadEnvFile("/etc/ai-dast-ing.env")
 	// Try the actual user's home (works even under sudo)
 	if sudoUser := os.Getenv("SUDO_USER"); sudoUser != "" {
 		loadEnvFile(filepath.Join("/home", sudoUser, ".ai-dast-ing.env"))
 	}
-	home, err := os.UserHomeDir()
-	if err != nil {
-		log.Printf("Warning: failed to get home directory: %v (using /root)", err)
-		home = "/root"
-	}
 	loadEnvFile(filepath.Join(home, ".ai-dast-ing.env"))
+	applyLegacyCompat(home)
 
 	aidastingHome := filepath.Join(home, ".ai-dast-ing")
 

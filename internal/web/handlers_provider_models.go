@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -198,7 +197,7 @@ func providerModelsURLs(entry providers.Entry) ([]string, error) {
 		// not /v1/models like the generic OpenAI path. Honor the Enterprise /
 		// data-residency override (AIDASTING_COPILOT_API_URL) for the host.
 		cb := base
-		if ov := strings.TrimRight(strings.TrimSpace(os.Getenv("AIDASTING_COPILOT_API_URL")), "/"); ov != "" {
+		if ov := llm.CopilotAPIBaseOverride(); ov != "" {
 			cb = ov
 		}
 		base = strings.TrimRight(cb, "/") + "/models"

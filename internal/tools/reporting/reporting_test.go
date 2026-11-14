@@ -900,6 +900,16 @@ func TestHasConcreteRCEExecutionProof(t *testing.T) {
 			proof: "The response body returned AIDASTING_RCE_CANARY_a81f5d after the injected echo command.",
 			want:  true,
 		},
+		{
+			name:  "response bound hyphenated canary",
+			proof: "Command output returned ai-dast-ing-rce-7c19e2 from the injected id command.",
+			want:  true,
+		},
+		{
+			name:  "response bound legacy canary",
+			proof: "The response body returned XALGORIX_RCE_CANARY_a81f5d after the injected echo command.",
+			want:  true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

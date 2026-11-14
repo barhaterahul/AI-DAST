@@ -36,7 +36,7 @@ var unixIdentityOutputRe = regexp.MustCompile(`(?i)\buid=\d+\([^)]+\)(?:\s+gid=\
 var unixPasswdRootLineRe = regexp.MustCompile(`(?m)^root:[^:\r\n]*:0:0:`)
 var whoamiOutputRe = regexp.MustCompile(`(?i)\bwhoami\s+(?:command\s+)?output\s*[:=]\s*(?:root|www-data|apache|nginx|nobody|system|nt authority\\(?:system|local service|network service))\b`)
 var linuxUnameOutputRe = regexp.MustCompile(`(?im)^Linux\s+\S+\s+\d+\.\d+\.\S+[^\r\n]{0,180}\bGNU/Linux\b`)
-var rceCanaryOutputRe = regexp.MustCompile(`(?i)\b(?:response(?:\s+body)?|command\s+output|returned)\b[^\r\n]{0,160}\b(?:ai-dast-ing[-_ ]?(?:rce|cmd|canary)|rce[-_]?canary)[-_a-z0-9]{4,}\b`)
+var rceCanaryOutputRe = regexp.MustCompile(`(?i)\b(?:response(?:\s+body)?|command\s+output|returned)\b[^\r\n]{0,160}\b(?:(?:ai-?dast-?ing|xalgorix)[-_ ]?(?:rce|cmd|canary)|rce[-_]?canary)[-_a-z0-9]{4,}\b`)
 
 // Valid verification methods — the agent must specify one when reporting.
 var validVerificationMethods = map[string]bool{

@@ -531,11 +531,10 @@ func FormatVulnSummary() string {
 	return b.String()
 }
 
-// FormatCostNote prints an honest end-of-scan LLM-usage line plus a low-key
-// pointer to the hosted service. Self-hosting is free to run, but the tokens the
-// agent just spent were billed to the operator's own LLM provider — a cost
-// that's otherwise invisible until the provider invoice arrives. Surfacing the
-// count makes it visible, and points at the outcome-based hosted alternative.
+// FormatCostNote prints an honest end-of-scan LLM-usage line. Self-hosting is
+// free to run, but the tokens the agent just spent were billed to the
+// operator's own LLM provider — a cost that's otherwise invisible until the
+// provider invoice arrives. Surfacing the count makes it visible.
 // Returns "" when there were no tokens to report (e.g. a run that never called
 // the model), so it stays silent when there's nothing honest to say.
 func FormatCostNote(cfg *config.Config, totalTokens int, costUSD float64) string {
@@ -551,9 +550,6 @@ func FormatCostNote(cfg *config.Config, totalTokens int, costUSD float64) string
 	} else {
 		b.WriteString("  Those tokens were billed to your own LLM provider.\n")
 	}
-	b.WriteString("  The hosted cloud runs the same exploit-verified scan for 1 credit per\n")
-	b.WriteString("  live host — no API keys, no token bills, infra + OOB managed for you:\n")
-	b.WriteString("    → https://www.ai-dast-ing.com/hosted-vs-self-hosted\n")
 	return b.String()
 }
 

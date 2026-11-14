@@ -32,12 +32,6 @@ For best autonomous scanning results, choose a current frontier model with stron
 
 ---
 
-## Reviewing GitHub pull requests (free, no install)
-
-Prefer security review straight on your PRs? Install the **[AI-DAST-ING GitHub App](https://github.com/apps/ai-dast-ing/installations/new)** — it comments a security review on each pull request's diff (injection, broken auth/IDOR, SSRF, secrets, unsafe patterns), updates in place on new commits, and re-runs when you comment `@ai-dast-ing review`. No workflow file, API key, or account required. This container image is for the deeper, self-hosted exploit-verified pentest.
-
----
-
 ## What's inside
 
 An extensive toolset ships preinstalled — `nmap`, `nuclei`, `httpx`, `subfinder`, `dnsx`, `naabu`, `katana`, `ffuf`, `gobuster`, `dalfox`, `feroxbuster`, `sqlmap`, `masscan`, `nikto`, `whatweb`, `hydra`, SecLists, and the broader Kali web/vulnerability/fuzzing/passwords metapackages — plus Chromium for browser-assisted DAST. The Go, Rust (cargo), Python (pipx/pip), and npm toolchains stay in the image, so the agent can install anything not baked in, on demand.
@@ -69,13 +63,12 @@ An extensive toolset ships preinstalled — `nmap`, `nuclei`, `httpx`, `subfinde
 
 - The container runs as **root by design** — the engine only enables runtime tool auto-install for uid 0, and `apt`/`go`/`cargo` installs need system write access. Treat the container as a disposable, network-isolated scanning sandbox.
 - **Never expose the dashboard publicly without `AIDASTING_USERNAME`/`AIDASTING_PASSWORD`.** The server refuses external binding without auth.
-- No scan data, API keys, or findings leave the container unless you configure outbound integrations (Discord/Telegram/webhooks).
+- No scan data, API keys, or findings leave the container unless you configure outbound services (e.g. an external OOB server or an upstream proxy).
 
 ## Links
 
-- **Source & docs:** https://github.com/ai-dast-ing/ai-dast-ing
-- **Documentation:** https://docs.ai-dast-ing.com
-- **Hosted (no install):** https://www.ai-dast-ing.com
-- **One-line install (Linux or macOS, amd64/arm64):** `curl -sSL https://www.ai-dast-ing.com/install | bash`
+- **Source & docs:** https://github.com/barhaterahul/AI-DAST
+- **Documentation:** https://github.com/barhaterahul/AI-DAST/tree/main/docs
+- **One-line install (Linux or macOS, amd64/arm64):** `curl -sSL https://raw.githubusercontent.com/barhaterahul/AI-DAST/main/install.sh | bash`
 
 Released under the Apache License 2.0.

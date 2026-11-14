@@ -18,7 +18,6 @@ import (
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/reporting"
 )
 
-
 // truncateForNotification caps a code/proof block at maxBytes without splitting
 // a multi-byte UTF-8 rune (so the notification never carries invalid bytes),
 // appending a truncation marker when it trims.

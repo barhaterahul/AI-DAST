@@ -27,7 +27,6 @@ import (
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/reporting"
 )
 
-
 func newTestServer(t *testing.T, cfg *config.Config) *Server {
 	t.Helper()
 	if cfg == nil {
@@ -966,7 +965,7 @@ func TestQueueState_PreservesAllConfig(t *testing.T) {
 	if state.LogoPath != "/uploads/logos/acme.png" {
 		t.Errorf("LogoPath = %q", state.LogoPath)
 	}
-		if state.ActiveTarget != "https://a.test" || state.ActiveScanDir != activeDir || state.ActiveScanID != "scan-active" {
+	if state.ActiveTarget != "https://a.test" || state.ActiveScanDir != activeDir || state.ActiveScanID != "scan-active" {
 		t.Errorf("active scan progress not preserved: %#v", state)
 	}
 	if state.WildcardActiveTarget != "api.a.test" || state.WildcardActiveScanDir != activeSubDir || state.WildcardActiveScanID != "scan-child" {
@@ -1276,7 +1275,7 @@ func TestScanRecordForSessionResumePreservesPersistedState(t *testing.T) {
 		server:          s,
 		userInstruction: "resume instructions",
 		severityFilter:  []string{"critical"},
-			scanMode:        "single",
+		scanMode:        "single",
 		companyName:     "ACME",
 		logoPath:        "/uploads/logos/acme.png",
 		phases:          []int{1, 6, 22},
@@ -2832,7 +2831,6 @@ func TestScannerIdle(t *testing.T) {
 }
 
 // ── Telegram notification tests (issue #157) ──────────────────────────────────
-
 
 func TestReportPersistsBelowFilterVulns(t *testing.T) {
 	// Simulate a scan where the operator set severity_filter=["critical"]

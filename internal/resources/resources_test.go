@@ -196,7 +196,7 @@ func TestConfigureGoRuntimeLimitsHonorsOverrides(t *testing.T) {
 	const unset = "<unset>"
 	for _, tc := range []struct {
 		name, aidasting, gomemlimit string
-		wantMB                     int64 // 0: the runtime limit is left unchanged
+		wantMB                      int64 // 0: the runtime limit is left unchanged
 	}{
 		{"auto", unset, unset, autoMB},
 		{"empty GOMEMLIMIT", unset, "", autoMB},

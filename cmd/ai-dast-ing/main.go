@@ -2,6 +2,8 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -139,7 +141,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "❌ Failed to fetch latest version from GitHub\n")
 			fmt.Fprintf(os.Stderr, "   This is usually caused by GitHub API rate limiting (60 req/hour for unauthenticated users).\n")
 			fmt.Fprintf(os.Stderr, "   Try again in a few minutes, or update manually:\n")
-			fmt.Fprintf(os.Stderr, "   wget -O $(which ai-dast-ing) https://github.com/ai-dast-ing/ai-dast-ing/releases/latest/download/ai-dast-ing-linux-amd64\n")
+			fmt.Fprintf(os.Stderr, "   wget -O $(which ai-dast-ing) https://github.com/%s/releases/latest/download/ai-dast-ing-linux-amd64\n", releaseRepo)
 			os.Exit(1)
 		}
 
@@ -984,11 +986,16 @@ func execRestart(path string, argv, env []string) error {
 	return execSyscall(path, argv, env)
 }
 
+// releaseRepo is the GitHub owner/repo that publishes official release
+// binaries (with a SHA256SUMS asset, see scripts/release.py). Every update and
+// install URL derives from this one constant so they cannot drift apart.
+const releaseRepo = "barhaterahul/AI-DAST"
+
 // fetchLatestRelease queries GitHub for the latest release version and binary download URL.
 func fetchLatestRelease() (version string, downloadURL string) {
 	client := &http.Client{Timeout: 15 * time.Second}
 
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/ai-dast-ing/ai-dast-ing/releases/latest", nil)
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/"+releaseRepo+"/releases/latest", nil)
 	if err != nil {
 		return "", ""
 	}
@@ -1040,7 +1047,7 @@ func fetchLatestRelease() (version string, downloadURL string) {
 
 // fetchLatestTag uses the git tags API as a fallback when releases API is rate-limited.
 func fetchLatestTag(client *http.Client) (string, string) {
-	req, err := http.NewRequest("GET", "https://api.github.com/repos/ai-dast-ing/ai-dast-ing/tags?per_page=1", nil)
+	req, err := http.NewRequest("GET", "https://api.github.com/repos/"+releaseRepo+"/tags?per_page=1", nil)
 	if err != nil {
 		return "", ""
 	}
@@ -1069,7 +1076,7 @@ func fetchLatestTag(client *http.Client) (string, string) {
 	}
 
 	wantName := fmt.Sprintf("ai-dast-ing-%s-%s", runtime.GOOS, runtime.GOARCH)
-	downloadURL := fmt.Sprintf("https://github.com/ai-dast-ing/ai-dast-ing/releases/download/v%s/%s", ver, wantName)
+	downloadURL := fmt.Sprintf("https://github.com/%s/releases/download/v%s/%s", releaseRepo, ver, wantName)
 	return ver, downloadURL
 }
 
@@ -1088,12 +1095,73 @@ func resolveInstallPath() string {
 	return filepath.Join(goPath, "bin", "ai-dast-ing")
 }
 
-// installBinary downloads a binary from url and installs it to destPath.
+// checksumsURL returns the SHA256SUMS URL that sits beside a release asset
+// URL (.../releases/download/vX.Y.Z/<asset> → .../releases/download/vX.Y.Z/SHA256SUMS).
+func checksumsURL(assetURL string) (sumsURL, assetName string, err error) {
+	i := strings.LastIndex(assetURL, "/")
+	if i < 0 || i == len(assetURL)-1 {
+		return "", "", fmt.Errorf("unexpected release asset URL %q", assetURL)
+	}
+	return assetURL[:i+1] + "SHA256SUMS", assetURL[i+1:], nil
+}
+
+// expectedSHA256 finds assetName's digest in a SHA256SUMS body
+// ("<hex>  <name>" per line, as written by scripts/release.py).
+func expectedSHA256(sums, assetName string) (string, error) {
+	for _, line := range strings.Split(sums, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) != 2 {
+			continue
+		}
+		if strings.TrimPrefix(fields[1], "*") == assetName {
+			sum := strings.ToLower(fields[0])
+			if len(sum) != sha256.Size*2 {
+				return "", fmt.Errorf("malformed SHA256SUMS entry for %s", assetName)
+			}
+			if _, err := hex.DecodeString(sum); err != nil {
+				return "", fmt.Errorf("malformed SHA256SUMS entry for %s", assetName)
+			}
+			return sum, nil
+		}
+	}
+	return "", fmt.Errorf("SHA256SUMS has no entry for %s", assetName)
+}
+
+// fetchExpectedSHA256 downloads the release's SHA256SUMS and returns the
+// digest for the asset at assetURL. It fails closed: no checksum, no install.
+func fetchExpectedSHA256(client *http.Client, assetURL string) (string, error) {
+	sumsURL, assetName, err := checksumsURL(assetURL)
+	if err != nil {
+		return "", err
+	}
+	resp, err := client.Get(sumsURL)
+	if err != nil {
+		return "", fmt.Errorf("checksum download failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("checksum download returned HTTP %d", resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return "", fmt.Errorf("checksum download interrupted: %w", err)
+	}
+	return expectedSHA256(string(body), assetName)
+}
+
+// installBinary downloads a binary from url, verifies it against the
+// release's SHA256SUMS, and installs it to destPath. A missing or mismatched
+// checksum aborts before the existing binary is touched.
 func installBinary(url, destPath string) error {
 	tmpPath := destPath + ".new"
 	defer func() { _ = os.Remove(tmpPath) }()
 
 	client := &http.Client{Timeout: 5 * time.Minute}
+	wantSum, err := fetchExpectedSHA256(client, url)
+	if err != nil {
+		return fmt.Errorf("refusing to install unverified binary: %w", err)
+	}
+
 	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("download failed: %w", err)
@@ -1109,10 +1177,14 @@ func installBinary(url, destPath string) error {
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 
-	_, err = io.Copy(tmpFile, resp.Body)
+	hasher := sha256.New()
+	_, err = io.Copy(io.MultiWriter(tmpFile, hasher), resp.Body)
 	tmpFile.Close()
 	if err != nil {
 		return fmt.Errorf("download interrupted: %w", err)
+	}
+	if got := hex.EncodeToString(hasher.Sum(nil)); got != wantSum {
+		return fmt.Errorf("checksum mismatch: got %s, want %s", got, wantSum)
 	}
 
 	if err := os.Remove(destPath); err != nil && !os.IsNotExist(err) {

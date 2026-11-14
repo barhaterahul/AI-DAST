@@ -16,6 +16,9 @@ func TestSecretEnvKey(t *testing.T) {
 		"AIDASTING_USERNAME", "AIDASTING_PASSWORD", "AIDASTING_PASSWORD_HASH",
 		"AIDASTING_PROXY_URL", "AIDASTING_TARGET_AUTH", "AIDASTING_OOB_API_KEY",
 		"gemini_api_key", "Caido_Api_Token", // case-insensitive
+		// Retired integrations: still stripped from upgraded hosts.
+		"AGENTMAIL_API_KEY", "AGENTMAIL_POD",
+		"AIDASTING_DISCORD_WEBHOOK", "AIDASTING_TELEGRAM_BOT_TOKEN", "AIDASTING_TELEGRAM_CHAT_ID",
 	}
 	for _, k := range secret {
 		if !SecretEnvKey(k) {
@@ -71,4 +74,17 @@ func containsExact(xs []string, v string) bool {
 		}
 	}
 	return false
+}
+
+func TestOperatorNamespaceKey(t *testing.T) {
+	for _, k := range []string{"AIDASTING_API_KEY", "aidasting_password", "XALGORIX_API_KEY", "Xalgorix_Password"} {
+		if !OperatorNamespaceKey(k) {
+			t.Errorf("OperatorNamespaceKey(%q) = false, want true", k)
+		}
+	}
+	for _, k := range []string{"PATH", "GITHUB_TOKEN", "AIDASTING", "MY_AIDASTING_KEY", ""} {
+		if OperatorNamespaceKey(k) {
+			t.Errorf("OperatorNamespaceKey(%q) = true, want false", k)
+		}
+	}
 }

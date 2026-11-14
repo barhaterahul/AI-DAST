@@ -34,6 +34,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -81,8 +83,63 @@ var copilotHTTPClient = &http.Client{Timeout: 30 * time.Second}
 // base (e.g. https://api.<tenant>.ghe.com). When set it takes precedence over
 // both the default host and the exchange-advertised host, so a request can't
 // be mis-routed to the public gateway (a common cause of 502s on Enterprise).
+//
+// The override receives the operator's GitHub credential, so it must be
+// https (plain http is accepted only for a loopback host, e.g. a local test
+// gateway); anything else is ignored with a log line rather than sending the
+// token in cleartext.
 func copilotAPIBaseOverride() string {
-	return strings.TrimRight(strings.TrimSpace(os.Getenv("AIDASTING_COPILOT_API_URL")), "/")
+	return validCopilotURL("AIDASTING_COPILOT_API_URL")
+}
+
+// CopilotAPIBaseOverride is copilotAPIBaseOverride for other packages (model
+// discovery), so every Copilot call site applies the same validation.
+func CopilotAPIBaseOverride() string { return copilotAPIBaseOverride() }
+
+// validCopilotURL reads env var name and returns it without a trailing slash
+// if it is an absolute https URL (or http to a loopback host); otherwise "".
+func validCopilotURL(name string) string {
+	raw := strings.TrimRight(strings.TrimSpace(os.Getenv(name)), "/")
+	if raw == "" {
+		return ""
+	}
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		log.Printf("copilot: ignoring %s: not an absolute URL", name)
+		return ""
+	}
+	switch u.Scheme {
+	case "https":
+		return raw
+	case "http":
+		host := u.Hostname()
+		if ip := net.ParseIP(host); host == "localhost" || (ip != nil && ip.IsLoopback()) {
+			return raw
+		}
+	}
+	log.Printf("copilot: ignoring %s: must be https (http is allowed only for loopback hosts)", name)
+	return ""
+}
+
+// copilotExchangeURL picks the token-exchange endpoint. Precedence:
+//  1. AIDASTING_COPILOT_TOKEN_URL, an explicit operator override;
+//  2. for a data-residency API override on <x>.<tenant>.ghe.com, the
+//     tenant's own exchange at https://api.<tenant>.ghe.com — a ghe.com
+//     credential is not valid on public api.github.com;
+//  3. the public endpoint (copilotTokenExchangeURL).
+func copilotExchangeURL() string {
+	if ov := validCopilotURL("AIDASTING_COPILOT_TOKEN_URL"); ov != "" {
+		return ov
+	}
+	if base := copilotAPIBaseOverride(); base != "" {
+		if u, err := url.Parse(base); err == nil {
+			labels := strings.Split(strings.ToLower(u.Hostname()), ".")
+			if n := len(labels); n >= 3 && labels[n-2] == "ghe" && labels[n-1] == "com" {
+				return "https://api." + labels[n-3] + ".ghe.com/copilot_internal/v2/token"
+			}
+		}
+	}
+	return copilotTokenExchangeURL
 }
 
 // copilotIntegrationID picks the Copilot-Integration-Id header value
@@ -195,7 +252,7 @@ type copilotTokenResponse struct {
 
 // exchangeCopilotToken performs the GitHub → Copilot token handshake.
 func exchangeCopilotToken(ctx context.Context, githubToken string) (cachedCopilotToken, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, copilotTokenExchangeURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, copilotExchangeURL(), nil)
 	if err != nil {
 		return cachedCopilotToken{}, fmt.Errorf("copilot: build token request: %w", err)
 	}
@@ -270,14 +327,6 @@ func applyCopilotRequestHeaders(req *http.Request, integrationID string) {
 	req.Header.Set("Openai-Intent", "conversation-panel")
 }
 
-// copilotVendorOverride returns the Endpoint.VendorOverride closure for
-// the Copilot provider. On each outbound chat request it adds the
-// editor-identity headers and sets Authorization to the resolved Bearer
-// — an exchanged short-lived Copilot token when the exchange is
-// available, otherwise the raw GitHub token (the Copilot CLI's direct
-// path, which is what Copilot Free requires). The destination host is
-// GitHub's own Copilot API (api.githubcopilot.com), so sending the
-// GitHub token there is the intended flow, not a leak.
 // ApplyCopilotAuth prepares req for a GitHub Copilot API call — chat OR model
 // discovery. It resolves the GitHub credential to a Copilot bearer (the token
 // exchange, falling back to the direct-Bearer path), sets Authorization and the
@@ -289,6 +338,14 @@ func ApplyCopilotAuth(req *http.Request, githubToken string) {
 	copilotVendorOverride(githubToken)(req)
 }
 
+// copilotVendorOverride returns the Endpoint.VendorOverride closure for
+// the Copilot provider. On each outbound chat request it adds the
+// editor-identity headers and sets Authorization to the resolved Bearer
+// — an exchanged short-lived Copilot token when the exchange is
+// available, otherwise the raw GitHub token (the Copilot CLI's direct
+// path, which is what Copilot Free requires). The destination host is
+// GitHub's own Copilot API (api.githubcopilot.com), so sending the
+// GitHub token there is the intended flow, not a leak.
 func copilotVendorOverride(githubToken string) func(req *http.Request) {
 	integrationID := copilotIntegrationID(githubToken)
 	return func(req *http.Request) {

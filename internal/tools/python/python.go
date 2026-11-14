@@ -235,7 +235,7 @@ func pythonWorkspaceEnv(workDir string) []string {
 		"XDG_CACHE_HOME":          true,
 		"XDG_CONFIG_HOME":         true,
 		"XDG_DATA_HOME":           true,
-		"AIDASTING_WORKSPACE":      true,
+		"AIDASTING_WORKSPACE":     true,
 		"PYTHONDONTWRITEBYTECODE": true,
 	}
 	// The agent must never see the operator's provider keys, admin-console
@@ -255,7 +255,7 @@ func pythonWorkspaceEnv(workDir string) []string {
 		}
 		// Drop the whole AIDASTING_* namespace (tools never need it; the few safe
 		// ones are re-added below) and any non-namespaced operator secret.
-		if strings.HasPrefix(key, "AIDASTING_") || tools.SecretEnvKey(key) {
+		if tools.OperatorNamespaceKey(key) || tools.SecretEnvKey(key) {
 			continue
 		}
 		env = append(env, kv)

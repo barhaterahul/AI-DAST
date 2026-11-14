@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/go-pdf/fpdf"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/config"
+	"github.com/go-pdf/fpdf"
 )
 
 // reportPDF wraps *fpdf.Fpdf so the report generator can transparently render

@@ -682,7 +682,6 @@ func (s *Server) runRegisteredMultiScan(run *multiScanRun, scanCfg *config.Confi
 	log.Printf("[INFO] runMultiScan main body complete")
 }
 
-
 // ────────────────────────────────────────────────────────
 // Mode-specific target handlers
 // ────────────────────────────────────────────────────────
@@ -1456,24 +1455,24 @@ func (s *Server) runWildcardTarget(ctx context.Context, scanCfg *config.Config, 
 				newVulns := allVulns[vulnCountBefore:]
 				if len(newVulns) > 0 {
 					subScanRecord := ScanRecord{
-						ID:                       filepath.Base(subScanDir),
-						InstanceID:               req.InstanceID,
-						Name:                     req.Name,
-						Target:                   subdomain,
-						ParentTarget:             target,
-						ScanMode:                 "wildcard",
-						Instruction:              req.Instruction,
-						SeverityFilter:           append([]string(nil), req.SeverityFilter...),
-						ReconMode:                req.ReconMode,
-						ScanIntensity:            req.ScanIntensity,
-						StartedAt:                time.Now().Format(time.RFC3339),
-						Status:                   "finished",
-						FinishedAt:               time.Now().Format(time.RFC3339),
-						Vulns:                    []VulnSummary{},
-						CompanyName:              req.CompanyName,
-						LogoPath:                 req.LogoPath,
-						Phases:                   append([]int(nil), req.Phases...),
-						CurrentPhase:             22,
+						ID:             filepath.Base(subScanDir),
+						InstanceID:     req.InstanceID,
+						Name:           req.Name,
+						Target:         subdomain,
+						ParentTarget:   target,
+						ScanMode:       "wildcard",
+						Instruction:    req.Instruction,
+						SeverityFilter: append([]string(nil), req.SeverityFilter...),
+						ReconMode:      req.ReconMode,
+						ScanIntensity:  req.ScanIntensity,
+						StartedAt:      time.Now().Format(time.RFC3339),
+						Status:         "finished",
+						FinishedAt:     time.Now().Format(time.RFC3339),
+						Vulns:          []VulnSummary{},
+						CompanyName:    req.CompanyName,
+						LogoPath:       req.LogoPath,
+						Phases:         append([]int(nil), req.Phases...),
+						CurrentPhase:   22,
 					}
 					for _, v := range newVulns {
 						summary := vulnToSummary(v)

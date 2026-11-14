@@ -55,17 +55,18 @@ func TestFormatCostNote(t *testing.T) {
 		t.Errorf("FormatCostNote(_, 0) = %q, want empty", got)
 	}
 
-	// Remote provider: names the provider bill, the hosted nudge, and the URL.
+	// Remote provider: names the provider bill, and links nowhere external.
 	remote := FormatCostNote(&config.Config{LLMProvider: "openai"}, 2_000_000, 0)
 	for _, want := range []string{
 		"2.00M tokens",
 		"billed to your own LLM provider",
-		"1 credit per",
-		"ai-dast-ing.com/hosted-vs-self-hosted",
 	} {
 		if !strings.Contains(remote, want) {
 			t.Errorf("remote cost note missing %q:\n%s", want, remote)
 		}
+	}
+	if strings.Contains(remote, "http") {
+		t.Errorf("cost note must not link to an external site:\n%s", remote)
 	}
 
 	// A provider-reported charge is printed as the scan's cost.

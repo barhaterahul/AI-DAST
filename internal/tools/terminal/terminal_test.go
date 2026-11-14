@@ -389,11 +389,12 @@ func TestCommandEnvStripsOperatorSecrets(t *testing.T) {
 	t.Setenv("AGENTMAIL_API_KEY", "am-secret")
 	t.Setenv("CAIDO_API_TOKEN", "caido-secret")
 	t.Setenv("AIDASTING_PASSWORD", "admin-secret")
+	t.Setenv("XALGORIX_API_KEY", "legacy-secret")
 	// Third-party recon tool keys must still reach executed tools.
 	t.Setenv("GITHUB_TOKEN", "ghp-keepme")
 
 	joined := strings.Join(commandEnv("/home/tester", "/home/tester/go", "/tmp/work", requestRateRuntime{}), "\n")
-	for _, leaked := range []string{"AGENTMAIL_API_KEY=", "CAIDO_API_TOKEN=", "AIDASTING_PASSWORD="} {
+	for _, leaked := range []string{"AGENTMAIL_API_KEY=", "CAIDO_API_TOKEN=", "AIDASTING_PASSWORD=", "XALGORIX_API_KEY="} {
 		if strings.Contains(joined, leaked) {
 			t.Errorf("commandEnv leaked operator secret %q to the tool environment", leaked)
 		}

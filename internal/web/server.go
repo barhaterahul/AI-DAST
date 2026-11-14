@@ -38,10 +38,10 @@ import (
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/providers"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/proxy"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/resources"
-	"github.com/barhaterahul/ai-dast-ing/v4/internal/scopeguard"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/safe"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/sandbox"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/scanctx"
+	"github.com/barhaterahul/ai-dast-ing/v4/internal/scopeguard"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/storage"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/browser"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/notes"
@@ -562,17 +562,17 @@ type ScanRecord struct {
 	// record for the final root plan. Skips carry justifications but are not
 	// executed coverage; unfinished work is visible here instead of being
 	// folded into a single percentage or completion label.
-	PlanTasksTotal           int       `json:"plan_tasks_total,omitempty"`
-	PlanTasksCompleted       int       `json:"plan_tasks_completed,omitempty"`
-	PlanTasksSkipped         int       `json:"plan_tasks_skipped,omitempty"`
-	PlanTasksUnfinished      int       `json:"plan_tasks_unfinished,omitempty"`
-	ScanMode                 string    `json:"scan_mode,omitempty"`                  // single, wildcard, dast
-	Instruction              string    `json:"instruction,omitempty"`                // custom scan instructions
-	SeverityFilter           []string  `json:"severity_filter,omitempty"`            // severity filter for scan
-	ReconMode                string    `json:"recon_mode,omitempty"`                 // active or passive reconnaissance
-	ScanIntensity            string    `json:"scan_intensity,omitempty"`             // active or passive testing/scanning
-	Events                   []WSEvent `json:"events"`
-	EventsJournal            bool      `json:"events_journal,omitempty"`
+	PlanTasksTotal      int       `json:"plan_tasks_total,omitempty"`
+	PlanTasksCompleted  int       `json:"plan_tasks_completed,omitempty"`
+	PlanTasksSkipped    int       `json:"plan_tasks_skipped,omitempty"`
+	PlanTasksUnfinished int       `json:"plan_tasks_unfinished,omitempty"`
+	ScanMode            string    `json:"scan_mode,omitempty"`       // single, wildcard, dast
+	Instruction         string    `json:"instruction,omitempty"`     // custom scan instructions
+	SeverityFilter      []string  `json:"severity_filter,omitempty"` // severity filter for scan
+	ReconMode           string    `json:"recon_mode,omitempty"`      // active or passive reconnaissance
+	ScanIntensity       string    `json:"scan_intensity,omitempty"`  // active or passive testing/scanning
+	Events              []WSEvent `json:"events"`
+	EventsJournal       bool      `json:"events_journal,omitempty"`
 	// EventsTotal / EventsTruncated are RESPONSE-ONLY hints for the scan-detail
 	// view. GET /api/scans/{id} returns only a tail of the event log (the most
 	// recent detailEventTail events) so a scan with a multi-hundred-MB event log
@@ -1814,20 +1814,20 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[ERROR] failed to create saved-target dir %s: %v", savedDir, err)
 		} else {
 			rec := &ScanRecord{
-				ID:                       instanceID,
-				Name:                     req.Name,
-				Target:                   targetStr,
-				Status:                   "saved",
-				StartedAt:                now,
-				ScanMode:                 req.ScanMode,
-				Instruction:              req.Instruction,
-				SeverityFilter:           req.SeverityFilter,
-				Phases:                   req.Phases,
-				ReconMode:                req.ReconMode,
-				ScanIntensity:            req.ScanIntensity,
-				CurrentPhase:             firstSelectedPhase(req.Phases),
-				CompanyName:              req.CompanyName,
-				LogoPath:                 req.LogoPath,
+				ID:             instanceID,
+				Name:           req.Name,
+				Target:         targetStr,
+				Status:         "saved",
+				StartedAt:      now,
+				ScanMode:       req.ScanMode,
+				Instruction:    req.Instruction,
+				SeverityFilter: req.SeverityFilter,
+				Phases:         req.Phases,
+				ReconMode:      req.ReconMode,
+				ScanIntensity:  req.ScanIntensity,
+				CurrentPhase:   firstSelectedPhase(req.Phases),
+				CompanyName:    req.CompanyName,
+				LogoPath:       req.LogoPath,
 			}
 			s.saveScanRecordTo(rec, savedDir)
 		}
@@ -3410,7 +3410,6 @@ func (s *Server) handleRateLimit(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 // handleVersion returns the current AI-DAST-ING version
 func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -3424,7 +3423,6 @@ func (s *Server) handleVersion(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 }
-
 
 // isBlockedTarget delegates to scopeguard.IsLocalOrListener, the
 // authoritative classifier for Local_Or_Listener_Host shared by the

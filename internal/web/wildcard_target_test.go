@@ -232,7 +232,7 @@ func TestWildcardChildInstruction_SharesStandaloneMethodology(t *testing.T) {
 		"FALSE POSITIVE REJECTION LIST",
 		"SELF-CRITIQUE BEFORE REPORTING",
 		"NATIVE BROWSER-BASED TESTING",
-		"Register two accounts",
+		"Create TWO accounts",
 		"SAFE EXPLOITATION RULES",
 		"UNIVERSAL EMAIL USAGE",
 		"browser_action",

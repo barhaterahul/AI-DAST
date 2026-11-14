@@ -32,22 +32,31 @@ var operatorSecretEnvKeys = map[string]bool{
 	"CAIDO_API_TOKEN":      true,
 	"INBOUND_EMAIL_SECRET": true,
 
+	// Retired integrations (AgentMail, Discord, Telegram). The features are
+	// gone, but an upgraded host can still carry these in its environment or
+	// env file, so keep stripping them — the deny-list must outlive the code
+	// that read them.
+	"AGENTMAIL_API_KEY":            true,
+	"AGENTMAIL_POD":                true,
+	"AIDASTING_DISCORD_WEBHOOK":    true,
+	"AIDASTING_TELEGRAM_BOT_TOKEN": true,
+	"AIDASTING_TELEGRAM_CHAT_ID":   true,
+
 	// Namespaced credentials — redundant with a AIDASTING_* scrub, listed so the
 	// predicate (and SanitizeEnviron) is correct on its own.
-	"AIDASTING_API_KEY":            true,
-	"AIDASTING_API_KEYS":           true,
-	"AIDASTING_API_TOKEN":          true,
-	"AIDASTING_USERNAME":           true,
-	"AIDASTING_PASSWORD":           true,
-	"AIDASTING_PASSWORD_HASH":      true,
-	"AIDASTING_PROXY_URL":          true,
-	"AIDASTING_PROXY_FILE":         true,
-	"AIDASTING_PROXY_ROTATION":     true,
-	"AIDASTING_TARGET_AUTH":        true,
-	"AIDASTING_TARGET_AUTH_B":      true,
-
-	"AIDASTING_OOB_API_KEY":        true,
-	"AIDASTING_OOB_HOST":           true,
+	"AIDASTING_API_KEY":        true,
+	"AIDASTING_API_KEYS":       true,
+	"AIDASTING_API_TOKEN":      true,
+	"AIDASTING_USERNAME":       true,
+	"AIDASTING_PASSWORD":       true,
+	"AIDASTING_PASSWORD_HASH":  true,
+	"AIDASTING_PROXY_URL":      true,
+	"AIDASTING_PROXY_FILE":     true,
+	"AIDASTING_PROXY_ROTATION": true,
+	"AIDASTING_TARGET_AUTH":    true,
+	"AIDASTING_TARGET_AUTH_B":  true,
+	"AIDASTING_OOB_API_KEY":    true,
+	"AIDASTING_OOB_HOST":       true,
 }
 
 // SecretEnvKey reports whether an environment variable name holds an operator
@@ -59,6 +68,15 @@ func SecretEnvKey(key string) bool {
 		return false
 	}
 	return operatorSecretEnvKeys[u]
+}
+
+// OperatorNamespaceKey reports whether key belongs to the scanner's own
+// configuration namespace: AIDASTING_* or the pre-rename XALGORIX_* (still
+// present on hosts upgraded from xalgorix). Subprocess environments drop the
+// whole namespace, re-adding only the few non-secret values they need.
+func OperatorNamespaceKey(key string) bool {
+	u := strings.ToUpper(key)
+	return strings.HasPrefix(u, "AIDASTING_") || strings.HasPrefix(u, "XALGORIX_")
 }
 
 // SanitizeEnviron returns a copy of env with every SecretEnvKey entry removed.

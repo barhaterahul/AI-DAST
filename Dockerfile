@@ -31,8 +31,8 @@
 # Build:  docker build -t barhaterahul/ai-dast-ing:latest .
 # Run:    docker run --rm -p 9137:9137 \
 #           --privileged \
-#           -e AIDASTING_LLM=openai/gpt-5.6 \
-#           -e AIDASTING_API_KEY=your_provider_api_key \
+#           -e AIDASTING_LLM=copilot/<model> \
+#           -e AIDASTING_API_KEY=your_github_copilot_token \
 #           -v ai-dast-ing-data:/data \
 #           barhaterahul/ai-dast-ing:latest
 #
@@ -120,7 +120,7 @@ RUN set -eux; \
     apt-get -o Acquire::Retries=3 update; \
     apt-get -o Acquire::Retries=3 install -y --no-install-recommends \
       ca-certificates curl wget git jq unzip zip file tree bc xxd \
-      html2text libxml2-utils binutils \
+      html2text libxml2-utils binutils libcap2-bin \
       openssl nmap netcat-openbsd whois dnsutils iproute2 libpcap0.8 \
       python3 python3-pip python3-venv pipx \
       chromium \
@@ -159,12 +159,23 @@ ENV PATH="/usr/local/go/bin:/root/go/bin:/root/.local/bin:${PATH}" \
 # package seclists, and it has no packageMap route (lazy install is not
 # possible), so bake it in. A full working tree is ~2.7 GB (the repo carries
 # huge asset dumps we never use), so sparse-checkout only the categories the
-# agent drives — Discovery/Web-Content, Discovery/DNS, Passwords credential
-# lists — then drop .git. Best-effort: scans still work off the embedded list.
+# agent drives: the Discovery/Web-Content, Discovery/DNS and
+# Passwords/Common-Credentials trees, plus the individual Fuzzing, Usernames,
+# SNMP and default-credential lists its prompts and skills name (all of
+# Fuzzing/ alone is ~150 MB). Non-cone mode so single files can be listed.
+# Then drop .git. Best-effort: scans still work off the embedded list.
 RUN git clone --depth 1 --filter=blob:none --sparse \
       https://github.com/danielmiessler/SecLists /usr/share/seclists \
     && cd /usr/share/seclists \
-    && git sparse-checkout set Discovery/Web-Content Discovery/DNS Passwords/Common-Credentials \
+    && git sparse-checkout set --no-cone \
+         /Discovery/Web-Content/ /Discovery/DNS/ /Passwords/Common-Credentials/ \
+         /Discovery/SNMP/common-snmp-community-strings-onesixtyone.txt \
+         /Discovery/SNMP/snmp-onesixtyone.txt \
+         /Passwords/Default-Credentials/ftp-betterdefaultpasslist.txt \
+         /Usernames/top-usernames-shortlist.txt \
+         /Usernames/xato-net-10-million-usernames.txt \
+         /Usernames/Names/names.txt \
+         /Fuzzing/LFI/LFI-Jhaddix.txt /Fuzzing/special-chars.txt /Fuzzing/format-strings.txt \
     && rm -rf .git \
     || echo "WARN: seclists clone failed (embedded wordlist remains available)"
 

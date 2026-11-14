@@ -16,7 +16,11 @@ for Copilot Free/Individual but is brittle on Enterprise:
 - GitHub can change/remove the internal endpoint at any time.
 
 Phase 1 (shipped) adds `AIDASTING_COPILOT_API_URL` to point at a tenant host
-explicitly, which fixes the host-routing class of 502. Phase 2 (this doc) moves
+explicitly, which fixes the host-routing class of 502. It must be `https`
+(plain `http` is accepted only for loopback hosts). When it names a
+`*.<tenant>.ghe.com` host, the token exchange also moves to the tenant
+(`https://api.<tenant>.ghe.com/copilot_internal/v2/token`); set
+`AIDASTING_COPILOT_TOKEN_URL` to override the exchange endpoint explicitly. Phase 2 (this doc) moves
 to the official SDK so GitHub's own client owns token exchange, refresh,
 data-residency host routing, and model availability.
 

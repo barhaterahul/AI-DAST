@@ -201,3 +201,38 @@ func contains(s, sub string) bool {
 		return false
 	})()
 }
+
+func TestCopilotAPIBaseOverrideRejectsCleartext(t *testing.T) {
+	cases := map[string]string{
+		"http://copilot.example.com":  "",
+		"ftp://copilot.example.com":   "",
+		"copilot.example.com":         "",
+		"http://127.0.0.1:8080/":      "http://127.0.0.1:8080",
+		"http://localhost:9000":       "http://localhost:9000",
+		"https://api.tenant.ghe.com/": "https://api.tenant.ghe.com",
+	}
+	for in, want := range cases {
+		t.Setenv("AIDASTING_COPILOT_API_URL", in)
+		if got := copilotAPIBaseOverride(); got != want {
+			t.Errorf("copilotAPIBaseOverride(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCopilotExchangeURL(t *testing.T) {
+	cases := []struct{ apiURL, tokenURL, want string }{
+		{"", "", copilotTokenExchangeURL},
+		{"https://api.githubcopilot.com", "", copilotTokenExchangeURL},
+		{"https://api.acme.ghe.com", "", "https://api.acme.ghe.com/copilot_internal/v2/token"},
+		{"https://copilot-api.Acme.ghe.com", "", "https://api.acme.ghe.com/copilot_internal/v2/token"},
+		{"https://api.acme.ghe.com", "https://gw.internal/token", "https://gw.internal/token"},
+		{"https://api.acme.ghe.com", "http://gw.internal/token", "https://api.acme.ghe.com/copilot_internal/v2/token"},
+	}
+	for _, tc := range cases {
+		t.Setenv("AIDASTING_COPILOT_API_URL", tc.apiURL)
+		t.Setenv("AIDASTING_COPILOT_TOKEN_URL", tc.tokenURL)
+		if got := copilotExchangeURL(); got != tc.want {
+			t.Errorf("api=%q token=%q: copilotExchangeURL() = %q, want %q", tc.apiURL, tc.tokenURL, got, tc.want)
+		}
+	}
+}

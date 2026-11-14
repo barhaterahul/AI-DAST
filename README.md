@@ -7,10 +7,9 @@
 [![Go](https://img.shields.io/badge/Go-1.26+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev)
 [![License](https://img.shields.io/badge/License-Apache_2.0-10b981?style=for-the-badge)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Linux_%7C_macOS-111111?style=for-the-badge&logo=linux&logoColor=white)](#-installation)
-[![AI-DAST-ING Cloud](https://img.shields.io/badge/Cloud-no_install-C51C39?style=for-the-badge)](https://www.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=hero_badge)
-[![GitHub stars](https://img.shields.io/github/stars/ai-dast-ing/ai-dast-ing?style=for-the-badge&logo=github&color=yellow)](https://github.com/ai-dast-ing/ai-dast-ing/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/ai-dast-ing/ai-dast-ing?style=for-the-badge&logo=github&color=blue)](https://github.com/ai-dast-ing/ai-dast-ing/network/members)
-[![GitHub release](https://img.shields.io/github/v/release/ai-dast-ing/ai-dast-ing?style=for-the-badge&logo=github&color=green)](https://github.com/ai-dast-ing/ai-dast-ing/releases)
+[![GitHub stars](https://img.shields.io/github/stars/barhaterahul/AI-DAST?style=for-the-badge&logo=github&color=yellow)](https://github.com/barhaterahul/AI-DAST/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/barhaterahul/AI-DAST?style=for-the-badge&logo=github&color=blue)](https://github.com/barhaterahul/AI-DAST/network/members)
+[![GitHub release](https://img.shields.io/github/v/release/barhaterahul/AI-DAST?style=for-the-badge&logo=github&color=green)](https://github.com/barhaterahul/AI-DAST/releases)
 
 </div>
 
@@ -25,17 +24,9 @@
   <a href="#-why-ai-dast-ing">💡 Why AI-DAST-ING</a> ·
   <a href="#-features">✨ Features</a> ·
   <a href="#-use-cases">🎯 Use Cases</a> ·
-  <a href="#self-host-or-cloud">☁️ Self-host or Cloud</a> ·
-  <a href="https://docs.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_docs&utm_content=hero_nav">📖 Docs</a> ·
-  <a href="https://github.com/ai-dast-ing/ai-dast-ing/discussions">💬 Discussions</a>
+  <a href="docs/">📖 Docs</a> ·
+  <a href="https://github.com/barhaterahul/AI-DAST/discussions">💬 Discussions</a>
 </p>
-
-| 🖥️ **Self-host** — this repo | ☁️ **[AI-DAST-ING Cloud](https://www.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=two_ways_title)** — nothing to install |
-| --- | --- |
-| Free and Apache-2.0. Runs on your machine with your own LLM key, or fully local with Ollama. Findings and reports stay on your infrastructure. | The same exploit-verified engine in your browser. Model, out-of-band callbacks and scheduling are managed for you. Packs from $10; credits never expire. |
-| [**Install in two commands ↓**](#-quick-start) | [**Compare self-hosted vs Cloud →**](https://www.ai-dast-ing.com/hosted-vs-self-hosted?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=two_ways_compare) |
-
-<p align="center">🤖 Only need PR reviews? The <a href="https://github.com/apps/ai-dast-ing">free AI-DAST-ING GitHub App</a> comments a security review on every pull request — no account, no API key.</p>
 
 ---
 
@@ -47,47 +38,15 @@
 | ------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------- |
 | ![AI-DAST-ING overview dashboard](assets/screenshot-1.png) | ![AI-DAST-ING scan detail](assets/screenshot-2.png) | ![AI-DAST-ING findings](assets/screenshot-3.png) |
 
-**☁️ AI-DAST-ING Cloud dashboard** — the managed version at [www.ai-dast-ing.com](https://www.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=screenshot_caption)
-
-<a href="https://www.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=screenshot"><img src="assets/SaaS-dashboard.png?v=4.5.154" alt="AI-DAST-ING Cloud dashboard showing security score, vulnerability trends, remediation metrics, and open issues by category" width="860" /></a>
-
 ---
 
----
-
-## 🤝 Sponsors
-
-AI-DAST-ING is supported by proxy-infrastructure partners — handy for checking how your own apps behave across regions. Proxy-Seller speaks **HTTP(S) and SOCKS5**, the protocols AI-DAST-ING uses.
-
-<table>
-  <tr>
-    <td align="center" valign="middle" width="50%">
-      <a href="mailto:partners@ai-dast-ing.com?subject=README%20sponsorship"><img src="assets/sponsor_placeholder.svg" alt="Your logo here: this sponsor spot is open" height="132" /></a>
-    </td>
-    <td align="center" valign="middle" width="50%">
-      <a href="https://proxy-seller.com/?partner=11571212D46044C9"><img src="assets/proxyseller_ai-dast-ing.jpg" alt="Proxy-Seller" height="132" /></a>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" valign="top">
-      <b><a href="mailto:partners@ai-dast-ing.com?subject=README%20sponsorship">Your brand here</a></b><br/>
-      <sub>This sponsor spot is open<br/>Email <a href="mailto:partners@ai-dast-ing.com?subject=README%20sponsorship">partners@ai-dast-ing.com</a> to claim it</sub>
-    </td>
-    <td align="center" valign="top">
-      <b><a href="https://proxy-seller.com/?partner=11571212D46044C9">Proxy-Seller</a></b><br/>
-      <sub>47M+ residential IPs · 220+ locations · residential, mobile, ISP &amp; datacenter<br/>AI-DAST-ING users get <b>15% off</b> with <code>AI-DAST-ING</code></sub>
-    </td>
-  </tr>
-</table>
-
----
 
 ## 🚀 Quick Start
 
 **Install (one line):**
 
 ```bash
-curl -sSL https://www.ai-dast-ing.com/install | bash
+curl -sSL https://raw.githubusercontent.com/barhaterahul/AI-DAST/main/install.sh | bash
 ```
 
 This downloads the prebuilt binary for your platform (Linux or macOS, amd64/arm64) from the latest release.
@@ -128,7 +87,7 @@ Open `http://localhost:9137`. You **don't need an LLM key to start** — the das
 **Easiest — Docker Compose** (maps the port + a persistent volume for you):
 
 ```bash
-curl -sSLO https://raw.githubusercontent.com/ai-dast-ing/ai-dast-ing/main/docker-compose.yml
+curl -sSLO https://raw.githubusercontent.com/barhaterahul/AI-DAST/main/docker-compose.yml
 docker compose up -d
 docker compose logs -f   # shows the generated admin password on first start
 ```
@@ -138,26 +97,11 @@ The image ships an extensive offensive-security toolset preinstalled (nmap, nucl
 **Or build from source** (needs Go 1.26+ and Node.js):
 
 ```bash
-git clone https://github.com/ai-dast-ing/ai-dast-ing.git
+git clone https://github.com/barhaterahul/AI-DAST.git
 cd ai-dast-ing
 make build
 sudo install -m 755 build/ai-dast-ing /usr/local/bin/ai-dast-ing
 ```
-
-> [!TIP]
-> **Rather skip the setup?** [AI-DAST-ING Cloud](https://www.ai-dast-ing.com/signup?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=quickstart_tip) runs the same exploit-verified engine in your browser — no install, no LLM key, no token bill. Packs from $10, no subscription; credits never expire.
-
-### 🤖 Review pull requests automatically — free GitHub App
-
-Want a security review on every pull request with zero setup? Install the **[AI-DAST-ING GitHub App](https://github.com/apps/ai-dast-ing)**. It reads each PR's diff and comments a security review — injection, broken auth/IDOR, SSRF, secrets, unsafe patterns — right on the pull request. Updates in place on new commits, and you can comment **`@ai-dast-ing review`** to re-run on demand. No workflow file, no API key, no account — and it's free.
-
-<div align="center">
-
-[**➕ Add AI-DAST-ING to GitHub →**](https://github.com/apps/ai-dast-ing/installations/new)
-
-</div>
-
-Need merge gating or a full exploit-verified pentest of the running app? Start a [Cloud scan from your CI](https://www.ai-dast-ing.com/docs/api?utm_source=github&utm_medium=readme&utm_campaign=gh_app_to_cloud&utm_content=app_block_ci) with the REST API and gate on verified findings at the severity you choose.
 
 > [!IMPORTANT]
 > Use AI-DAST-ING only on systems you own or have explicit permission to test.
@@ -174,7 +118,7 @@ Need merge gating or a full exploit-verified pentest of the running app? Start a
 | ✨ [Features](#-features) | 🔀 [Scan Modes](#-scan-modes) | 🧪 [Development](#-development) |
 | 📥 [Installation](#-installation) | 📂 [Scan Your Code](#-scan-your-code-no-target-needed) | 🚨 [Safety Notes](#-safety-notes) |
 | 🧭 [Methodology](#-methodology) | 📄 [Reports](#-reports) | 📜 [License](#-license) |
-| 🔧 [Settings](#-settings) | 🔗 [Links](#-links) | 🤝 [Sponsors](#-sponsors) |
+| 🔧 [Settings](#-settings) | 🔗 [Links](#-links) | |
 
 ## 🔎 Overview
 
@@ -209,33 +153,7 @@ Most scanners **detect**. AI-DAST-ING **proves**. An autonomous agent works thro
 
 > Directional comparison — Nuclei and ZAP are excellent at what they do. AI-DAST-ING adds the reasoning-heavy discovery and exploit-verification layer on top.
 
-<a name="self-host-or-cloud"></a>
-
-### ☁️ Self-hosted or AI-DAST-ING Cloud?
-
-AI-DAST-ING is free and open source — self-host it forever, no strings attached. [AI-DAST-ING Cloud](https://www.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=compare_intro) runs the **same** exploit-verified engine for people who would rather not manage LLM keys and token bills, a ~6–8 GB privileged toolbox container, or their own callback infrastructure. Both are first-class — pick what fits.
-
-|                                    | **Self-hosted** (this repo)                                  | **[AI-DAST-ING Cloud](https://www.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=compare_table_header)** |
-| ---------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------ |
-| Price to start                     | Free engine, Apache-2.0                                      | Packs from $10 (no subscription) or plans from $49/mo — [pricing](https://www.ai-dast-ing.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=compare_table_price) |
-| LLM                                | Bring your own key — or run fully local with Ollama          | Included — no key, no token bill                       |
-| Cost per scan                      | Your LLM tokens — varies with target size and model          | 1 credit per target or live host (very long scans: up to 3) — [how credits work](https://www.ai-dast-ing.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=compare_table_credits) |
-| Setup & ops                        | One-line installer, or Docker (~6–8 GB image, `--privileged`) | Nothing to run — start from the browser               |
-| Blind-vuln callbacks (OOB)         | Public Interactsh by default, or your own OOB server         | Managed DNS/HTTP/SMTP listeners                        |
-| Scheduling & alerts                | Built-in scheduler + Discord/Telegram, on your host          | Managed daily schedules + Slack/Discord/webhooks (Pro/Max) |
-| Sharing                            | Single-operator dashboard, PDF reports                       | Share links (password-protected on Pro/Max); private deployments via [sales](mailto:sales@ai-dast-ing.com) |
-| Updates                            | Binary auto-updates from GitHub Releases; Docker: pull a new tag | Engine updates managed for you                     |
-| Data residency / offline           | ✅ stays on your infra · air-gap OK with local models         | Runs on our infra (DPA available)                      |
-
-**Self-host if** data must stay on your network, you want full control, or you'll run offline/air-gapped — that's exactly what it's for. **Use Cloud if** you'd rather skip the API keys, infrastructure and surprise token bills, and pay per target instead of per token.
-
-<div align="center">
-
-[**☁️ Start a Cloud scan →**](https://www.ai-dast-ing.com/signup?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=cta_signup) &nbsp;·&nbsp; [**💳 See pricing**](https://www.ai-dast-ing.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=cta_pricing) &nbsp;·&nbsp; [**⚖️ Full comparison & cost calculator**](https://www.ai-dast-ing.com/hosted-vs-self-hosted?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=cta_compare)
-
-</div>
-
-If AI-DAST-ING saves you a triage cycle, please **[⭐ star the repo](https://github.com/ai-dast-ing/ai-dast-ing)** — it genuinely helps others find it.
+If AI-DAST-ING saves you a triage cycle, please **[⭐ star the repo](https://github.com/barhaterahul/AI-DAST)** — it genuinely helps others find it.
 
 ## 🎯 Use Cases
 
@@ -268,7 +186,7 @@ Use a prebuilt binary, Go, or a container.
 ### ⚡ One-line install (prebuilt binary)
 
 ```bash
-curl -sSL https://www.ai-dast-ing.com/install | bash
+curl -sSL https://raw.githubusercontent.com/barhaterahul/AI-DAST/main/install.sh | bash
 ```
 
 Downloads the latest release binary for your platform (Linux or macOS, `amd64`/`arm64`) and installs it to `/usr/local/bin` (or `~/.local/bin` without sudo). Override with `AIDASTING_INSTALL_DIR` or pin a version with `AIDASTING_VERSION=vX.Y.Z`.
@@ -315,7 +233,7 @@ On first run, if you don't set dashboard auth the container **generates a random
 A Helm chart is included in the repository at [`deploy/chart`](deploy/chart). There is no hosted chart repository, so install from a git checkout:
 
 ```bash
-git clone https://github.com/ai-dast-ing/ai-dast-ing.git
+git clone https://github.com/barhaterahul/AI-DAST.git
 cd ai-dast-ing
 helm install ai-dast-ing deploy/chart \
   --namespace ai-dast-ing --create-namespace \
@@ -348,7 +266,7 @@ go version
 ### 🔨 Build From Source
 
 ```bash
-git clone https://github.com/ai-dast-ing/ai-dast-ing.git
+git clone https://github.com/barhaterahul/AI-DAST.git
 cd ai-dast-ing
 make build
 sudo install -m 755 build/ai-dast-ing /usr/local/bin/ai-dast-ing
@@ -435,10 +353,6 @@ uses the standard OpenAI request shape that LiteLLM expects.
 
 ```bash
 GEMINI_API_KEY=AIza...
-AGENTMAIL_POD=am_us_pod_47
-AGENTMAIL_API_KEY=ak_...
-AIDASTING_DISCORD_WEBHOOK=https://discord.com/api/webhooks/...
-AIDASTING_DISCORD_MIN_SEVERITY=high
 ```
 
 ### 🔐 Dashboard Authentication
@@ -452,6 +366,15 @@ AIDASTING_PASSWORD=change-this-password
 > Prefer `AIDASTING_PASSWORD_HASH` for production deployments.
 
 ## 🆙 Upgrading from previous versions
+
+### 🏷️ Upgrading from xalgorix
+
+AI-DAST-ING still reads a pre-rename install. Any `XALGORIX_*` variable (or a
+`~/.xalgorix.env` / `/etc/xalgorix.env` file) fills in the matching `AIDASTING_*`
+setting when that one is unset, and `~/.xalgorix/data` is used if
+`~/.ai-dast-ing/data` doesn't exist yet. A deprecation line is logged at startup
+in either case. To migrate for good, rename the variables, move the env file, and
+`mv ~/.xalgorix ~/.ai-dast-ing` while the service is stopped.
 
 This release ships a stability and workspace-isolation pass with one breaking change and a few new knobs worth knowing about.
 
@@ -740,14 +663,6 @@ Some settings require a restart because they affect process startup or server bi
 
 | Variable                        | Default | Description                              |
 | ------------------------------- | ------- | ---------------------------------------- |
-| `AGENTMAIL_POD`                 | none    | AgentMail pod identifier.                |
-| `AGENTMAIL_API_KEY`             | none    | AgentMail API key.                       |
-| `AIDASTING_DISCORD_WEBHOOK`      | none    | Global Discord webhook.                  |
-| `AIDASTING_DISCORD_MIN_SEVERITY` | none    | Minimum severity sent to Discord.        |
-| `AIDASTING_TELEGRAM_BOT_TOKEN`   | none    | Telegram bot token from @BotFather.      |
-| `AIDASTING_TELEGRAM_CHAT_ID`      | none    | Telegram chat/channel ID (numeric or @username). |
-| `AIDASTING_TELEGRAM_MIN_SEVERITY`| none    | Minimum severity sent to Telegram.      |
-| `AIDASTING_NOTIFY_SCAN_COMPLETE` | `false` | Send end-of-scan summaries to configured Discord/Telegram destinations. This is opt-in and does not affect per-vulnerability alerts. |
 | `CAIDO_PORT`                    | `0`     | Caido proxy port. `0` means auto-detect. |
 | `CAIDO_API_TOKEN`               | none    | Caido API token.                         |
 
@@ -882,10 +797,8 @@ AI-DAST-ING is released under the Apache License 2.0. See [LICENSE](LICENSE).
 
 | Resource      | Link                                                                             |
 | ------------- | -------------------------------------------------------------------------------- |
-| ☁️ AI-DAST-ING Cloud | [www.ai-dast-ing.com](https://www.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=links_table) · [pricing](https://www.ai-dast-ing.com/pricing?utm_source=github&utm_medium=readme&utm_campaign=oss_to_cloud&utm_content=links_table_pricing) |
-| 🤖 GitHub App     | [Free security review on every PR](https://github.com/apps/ai-dast-ing)              |
-| 📖 Documentation | [docs.ai-dast-ing.com](https://docs.ai-dast-ing.com/?utm_source=github&utm_medium=readme&utm_campaign=oss_docs&utm_content=links_table)   |
-| 💬 Questions     | [GitHub Discussions](https://github.com/ai-dast-ing/ai-dast-ing/discussions)             |
-| 🐛 Issues        | [github.com/ai-dast-ing/ai-dast-ing/issues](https://github.com/ai-dast-ing/ai-dast-ing/issues) |
-| 🔒 Security      | [SECURITY.md](SECURITY.md) · [Disclosure program](https://www.ai-dast-ing.com/vdp)    |
+| 📖 Documentation | [docs/](docs/)                                                                   |
+| 💬 Questions     | [GitHub Discussions](https://github.com/barhaterahul/AI-DAST/discussions)             |
+| 🐛 Issues        | [github.com/barhaterahul/AI-DAST/issues](https://github.com/barhaterahul/AI-DAST/issues) |
+| 🔒 Security      | [SECURITY.md](SECURITY.md)                                                       |
 | ☕ Support       | [buymeacoffee.com/ING](https://buymeacoffee.com/ING)                     |

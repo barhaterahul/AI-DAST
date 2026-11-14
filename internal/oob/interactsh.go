@@ -21,9 +21,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/barhaterahul/ai-dast-ing/v4/internal/config"
 	ishclient "github.com/projectdiscovery/interactsh/pkg/client"
 	ishserver "github.com/projectdiscovery/interactsh/pkg/server"
-	"github.com/barhaterahul/ai-dast-ing/v4/internal/config"
 )
 
 const (
