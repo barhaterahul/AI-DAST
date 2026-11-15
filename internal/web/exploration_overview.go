@@ -252,7 +252,7 @@ func overviewScanNewer(a, b *ScanRecord) bool {
 	if oka && okb && !ta.Equal(tb) {
 		return ta.After(tb)
 	}
-	if !(oka && okb) && a.StartedAt != b.StartedAt {
+	if (!oka || !okb) && a.StartedAt != b.StartedAt {
 		return a.StartedAt > b.StartedAt
 	}
 	return a.ID > b.ID
