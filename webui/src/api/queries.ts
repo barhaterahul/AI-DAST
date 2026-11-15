@@ -541,3 +541,29 @@ export function useTokenStatus(instanceId: string, running: boolean) {
     refetchInterval: running ? 15000 : false,
   });
 }
+
+// ---- Scan editing ---------------------------------------------------------
+
+export function useScanConfig(id: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["scan-config", id],
+    queryFn: () => api.scanConfig(id),
+    enabled: enabled && !!id,
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+export function useUpdateScanConfig(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (edit: import("@/types/api").ScanEdit) => api.updateScanConfig(id, edit),
+    onSuccess: (data) => {
+      qc.setQueryData(["scan-config", id], data);
+      void qc.invalidateQueries({ queryKey: qk.scans });
+      void qc.invalidateQueries({ queryKey: ["scan"] });
+      void qc.invalidateQueries({ queryKey: qk.instances });
+      void qc.invalidateQueries({ queryKey: ["token-status"] });
+    },
+  });
+}

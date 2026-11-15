@@ -599,6 +599,9 @@ type ScanRecord struct {
 	CompanyName          string `json:"company_name,omitempty"` // report branding: company name
 	LogoPath             string `json:"logo_path,omitempty"`    // report branding: logo path
 	Phases               []int  `json:"phases,omitempty"`       // selected methodology phases
+	// TokenAuth names the token provider/profiles the scan uses (no secrets),
+	// so Start/Restart after a server restart keeps token-provider auth.
+	TokenAuth *TokenAuthSelection `json:"token_auth,omitempty"`
 	// PhasesWorked is the set of phases the engine observed concrete evidence
 	// for (tool activity classified into a phase, or a phase the model worked
 	// in). A forward jump - e.g. a "phase 20" mention while the timeline is on
@@ -1854,6 +1857,7 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 				CurrentPhase:   firstSelectedPhase(req.Phases),
 				CompanyName:    req.CompanyName,
 				LogoPath:       req.LogoPath,
+				TokenAuth:      req.TokenAuth,
 			}
 			s.saveScanRecordTo(rec, savedDir)
 		}
@@ -2707,6 +2711,17 @@ func (s *Server) handleInstanceAction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	inst, ok := s.resolveInstanceForAction(instanceID)
+
+	// GET/PATCH /api/instances/{id}/config — read or edit the scan's
+	// configuration, subject to its current status (see scan_edit.go).
+	if len(parts) >= 2 && parts[1] == "config" {
+		if !ok {
+			writeJSONStatus(w, http.StatusNotFound, map[string]string{"error": "instance not found"})
+			return
+		}
+		s.handleScanConfig(w, r, inst)
+		return
+	}
 
 	// GET /api/instances/{id} — return instance details.
 	if r.Method == http.MethodGet && (len(parts) == 1 || parts[1] == "") {

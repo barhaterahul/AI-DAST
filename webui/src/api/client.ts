@@ -9,6 +9,8 @@ import type {
   TokenProvider,
   TokenTestResult,
   TokenStatus,
+  ScanConfig,
+  ScanEdit,
   InstancesResponse,
   LLMSettings,
   LLMSettingsRequest,
@@ -310,6 +312,10 @@ export const api = {
   },
   resolveCollection: (req: { path: string; env?: string; vars?: Record<string, string>; exclude?: string[] }) =>
     http<ContextPreview>("/api/collection/resolve", { method: "POST", json: req, timeoutMs: 120_000 }),
+
+  scanConfig: (id: string) => http<ScanConfig>(`/api/instances/${encodeURIComponent(id)}/config`),
+  updateScanConfig: (id: string, edit: ScanEdit) =>
+    http<ScanConfig>(`/api/instances/${encodeURIComponent(id)}/config`, { method: "PATCH", json: edit }),
 
   tokenProviders: () => http<TokenProvider[]>("/api/token-providers"),
   tokenStatus: (instanceId: string) =>

@@ -30,6 +30,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScanStatusPill } from "@/components/scan-status-pill";
 import { TokenStatusBadge } from "@/components/token-status-badge";
+import { EditScanDialog } from "@/components/edit-scan-dialog";
 import { SeverityBadge } from "@/components/severity-badge";
 import { Markdown } from "@/components/markdown";
 import { VerificationBadge } from "@/components/verification-badge";
@@ -42,7 +43,10 @@ import {
 import { CopyButton } from "@/components/copy-button";
 import { TokenUsageTab } from "@/components/token-usage";
 import { ExplorationGraphView } from "@/components/exploration-graph";
-import { Network } from "lucide-react";
+import {
+  Network,
+  Pencil,
+} from "lucide-react";
 import { ErrorState, EmptyState } from "@/components/states";
 import {
   useScan,
@@ -108,6 +112,7 @@ export default function ScanDetailPage() {
   const unsubscribe = useWSStore((s) => s.unsubscribe);
   const liveEvents = useWSStore((s) => s.events);
   const subscriptionId = scan?.instance_id || scan?.id || id;
+  const [editOpen, setEditOpen] = useState(false);
 
   // Lazy-paged older events. The detail response only carries a tail of the
   // event log (scan.events_truncated); these are the earlier events fetched on
@@ -263,6 +268,10 @@ export default function ScanDetailPage() {
             instanceId={scan.instance_id || scan.id}
             running={["running", "pending"].includes((scan.status || "").toLowerCase())}
           />
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="mr-1 h-4 w-4" /> Edit
+          </Button>
+          <EditScanDialog scanId={scan.instance_id || scan.id} open={editOpen} onOpenChange={setEditOpen} />
           <Button variant="outline" size="sm" asChild>
             <a href={api.reportUrl(scan.id)} target="_blank" rel="noreferrer">
               <Download className="mr-1 h-4 w-4" /> Report

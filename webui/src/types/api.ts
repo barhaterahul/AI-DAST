@@ -790,3 +790,54 @@ export interface TokenStatus {
   active: boolean;
   roles?: TokenRoleStatus[] | null;
 }
+
+// ---- Scan editing ---------------------------------------------------------
+
+export type ScanEditField =
+  | "name" | "targets" | "scan_mode" | "instruction" | "phases" | "recon_mode"
+  | "scan_intensity" | "severity_filter" | "company_name" | "logo_path"
+  | "target_auth" | "target_auth_b" | "token_auth" | "scan_context";
+
+export interface ScanConfig {
+  id: string;
+  status: string;
+  policy: {
+    editable: ScanEditField[];
+    applies_on?: "start" | "resume" | "next_run";
+    locked_reason?: string;
+  };
+  config: {
+    name: string;
+    targets: string[];
+    scan_mode: string;
+    instruction: string;
+    phases: number[];
+    recon_mode: string;
+    scan_intensity: string;
+    severity_filter: string[];
+    company_name: string;
+    logo_path: string;
+    has_target_auth: boolean;
+    has_target_auth_b: boolean;
+    token_auth?: TokenAuthSelection | null;
+    scan_context: string;
+  };
+}
+
+export interface ScanEdit {
+  status?: string;
+  name?: string;
+  targets?: string[];
+  scan_mode?: string;
+  instruction?: string;
+  phases?: number[];
+  recon_mode?: string;
+  scan_intensity?: string;
+  severity_filter?: string[];
+  company_name?: string;
+  logo_path?: string;
+  target_auth?: string;
+  target_auth_b?: string;
+  token_auth?: TokenAuthSelection;
+  scan_context?: string;
+}

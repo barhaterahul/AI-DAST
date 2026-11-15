@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScanStatusPill } from "@/components/scan-status-pill";
+import { EditScanDialog } from "@/components/edit-scan-dialog";
 import { EmptyState, ErrorState } from "@/components/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteScan, useScansPage } from "@/api/queries";
@@ -25,6 +26,7 @@ import {
   Download,
   ExternalLink,
   MoreHorizontal,
+  Pencil,
   Plus,
   Search,
   ShieldAlert,
@@ -448,7 +450,10 @@ function RowActionMenu({
   deleting: boolean;
   onDelete: () => void;
 }) {
+  const [editOpen, setEditOpen] = useState(false);
   return (
+    <>
+    <EditScanDialog scanId={scan.id} open={editOpen} onOpenChange={setEditOpen} />
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
         <Button
@@ -466,6 +471,10 @@ function RowActionMenu({
               <ExternalLink className="h-3.5 w-3.5" />
               Open details
             </Link>
+          </DropdownMenu.Item>
+          <DropdownMenu.Item className={menuItemClass} onSelect={() => setEditOpen(true)}>
+            <Pencil className="h-3.5 w-3.5" />
+            Edit scan
           </DropdownMenu.Item>
           <DropdownMenu.Item asChild className={menuItemClass}>
             <a href={`/api/report/${scan.id}`} target="_blank" rel="noreferrer">
@@ -491,6 +500,7 @@ function RowActionMenu({
         </DropdownMenu.Content>
       </DropdownMenu.Portal>
     </DropdownMenu.Root>
+    </>
   );
 }
 
