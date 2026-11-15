@@ -3,6 +3,12 @@ import type {
   AuthStatus,
   CatalogEntry,
   EnvironmentSettings,
+  ExplorationGraph,
+  ExplorationScope,
+  ContextPreview,
+  TokenProvider,
+  TokenTestResult,
+  TokenStatus,
   InstancesResponse,
   LLMSettings,
   LLMSettingsRequest,
@@ -235,6 +241,12 @@ export const api = {
     http<ScanEventsPage>(
       `/api/scans/${id}/events?offset=${offset}&limit=${limit}`,
     ),
+  // Exploration Graph: how each finding was reached (discovery -> endpoint ->
+  // parameter -> attempt -> evidence -> finding -> backend).
+  scanGraph: (id: string, scope: ExplorationScope = "findings") =>
+    http<ExplorationGraph>(
+      `/api/scans/${encodeURIComponent(id)}/graph?scope=${encodeURIComponent(scope)}`,
+    ),
   // Token-attribution diagnostics for a scan (observability only).
   scanTokenUsage: (id: string) =>
     http<TokenUsageResponse>(`/api/scans/${id}/token-usage`),
@@ -250,10 +262,6 @@ export const api = {
     ),
 
   instances: () => http<InstancesResponse>("/api/instances"),
-  // Server-side paginated + filtered instances list. Resources and the
-  // distinct `modes` list are returned alongside the paged `instances`.
-  instancesPage: (params: ListParams) =>
-    http<InstancesResponse>(`/api/instances${listQuery(params)}`),
   instance: (id: string) => http<ScanInstance>(`/api/instances/${id}`),
   instanceEvents: (id: string) =>
     http<WSEvent[]>(`/api/instances/${id}/events`),
@@ -263,10 +271,6 @@ export const api = {
     http<{ status: string }>(`/api/instances/${id}/pause`, { method: "POST" }),
   resumeInstance: (id: string) =>
     http<{ status: string }>(`/api/instances/${id}/resume`, { method: "POST" }),
-  restartInstance: (id: string) =>
-    http<{ status: string }>(`/api/instances/${id}/restart`, {
-      method: "POST",
-    }),
   startSavedInstance: (id: string) =>
     http<{ status: string; instance_id?: string }>(
       `/api/instances/${id}/start`,
@@ -292,15 +296,10 @@ export const api = {
     // Multiple artifacts (e.g. a Postman collection + its environment) are sent
     // under the same "file" field; the server saves them into one directory and
     // parses them together.
-    for (const f of files) body.append("file", f);
-    return http<{
-      path: string;
-      filename: string;
-      files?: number;
-      endpoints: number;
-      formats: string[];
-      has_auth: boolean;
-    }>("/api/upload-context", {
+    // Folder uploads (Bruno collections) keep their relative path as the
+    // filename so the server can rebuild environments/ and sub-folders.
+    for (const f of files) body.append("file", f, f.webkitRelativePath || f.name);
+    return http<ContextPreview>("/api/upload-context", {
       method: "POST",
       body,
       // APK/HAR parsing can take a little while, but a KB spec is instant —
@@ -309,6 +308,19 @@ export const api = {
       timeoutMs: 120_000,
     });
   },
+  resolveCollection: (req: { path: string; env?: string; vars?: Record<string, string>; exclude?: string[] }) =>
+    http<ContextPreview>("/api/collection/resolve", { method: "POST", json: req, timeoutMs: 120_000 }),
+
+  tokenProviders: () => http<TokenProvider[]>("/api/token-providers"),
+  tokenStatus: (instanceId: string) =>
+    http<TokenStatus>(`/api/token-status/${encodeURIComponent(instanceId)}`),
+  saveTokenProvider: (p: TokenProvider) =>
+    http<TokenProvider>(`/api/token-providers/${encodeURIComponent(p.id)}`, { method: "PUT", json: p }),
+  deleteTokenProvider: (id: string) =>
+    http<{ status: string }>(`/api/token-providers/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  testTokenProvider: (req: { provider: TokenProvider; profile?: string; refresh?: boolean }) =>
+    http<TokenTestResult>("/api/token-providers/test", { method: "POST", json: req, timeoutMs: 90_000 }),
+
   stopAll: () => http<{ status: string }>("/api/stop", { method: "POST" }),
 
   queueStatus: () => http<QueueStatus>("/api/queue/status"),

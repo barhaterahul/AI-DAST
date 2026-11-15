@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/barhaterahul/ai-dast-ing/v4/internal/config"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/llm"
 )
 
@@ -143,13 +142,9 @@ func (s *Server) postScanChat(inst *ScanInstance, message string) (string, error
 	}
 	chatCfg := *inst.chatCfg
 	if len(inst.chatMessages) == 0 {
-		lang := ""
-		if s.cfg != nil {
-			lang = s.cfg.Language
-		}
 		inst.chatMessages = []llm.Message{{
 			Role:    "system",
-			Content: buildPostScanChatPrompt(inst, lang),
+			Content: buildPostScanChatPrompt(inst),
 		}}
 	}
 	messages := append([]llm.Message(nil), inst.chatMessages...)
@@ -173,12 +168,8 @@ func (s *Server) postScanChat(inst *ScanInstance, message string) (string, error
 	return response, nil
 }
 
-func buildPostScanChatPrompt(inst *ScanInstance, language string) string {
+func buildPostScanChatPrompt(inst *ScanInstance) string {
 	var b strings.Builder
-	if directive := config.OutputLanguageDirective(language); directive != "" {
-		b.WriteString(directive)
-		b.WriteString("\n\n")
-	}
 	if inst.Status == "paused" {
 		b.WriteString("You are AI-DAST-ING in paused-scan chat mode. The scan is paused, so answer follow-up questions using only the scan context captured so far. Do not claim that you are still scanning or that you can run tools in this chat. If the user asks for new testing, explain what the current results show and suggest resuming the scan.\n\n")
 	} else {

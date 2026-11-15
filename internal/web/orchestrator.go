@@ -174,6 +174,7 @@ func (s *Server) registerMultiScan(req ScanRequest, instanceIDs ...string) (*mul
 		TargetAuthSecondary: req.TargetAuthSecondary,
 		SourceRepo:          req.SourceRepo,
 		ScanContext:         req.ScanContext,
+		TokenAuth:           req.TokenAuth,
 		SubScans:            make([]SubScanSummary, 0),
 		snapshotFinalizing:  true,
 		Iterations:          req.ResumeIterations,
@@ -690,7 +691,7 @@ func (s *Server) runRegisteredMultiScan(run *multiScanRun, scanCfg *config.Confi
 func (s *Server) makeScanDir(target string) string {
 	dateDir := time.Now().Format("2006-01-02")
 	scanDirName := fmt.Sprintf("%s_%s", sanitizeTarget(target), randomSlug())
-	scanDir := filepath.Join(s.dataDir, target, dateDir, scanDirName)
+	scanDir := filepath.Join(s.dataDir, targetDirName(target), dateDir, scanDirName)
 	if err := os.MkdirAll(scanDir, 0700); err != nil {
 		log.Printf("[ERROR] Failed to create scan directory %s: %v", scanDir, err)
 	}
@@ -861,6 +862,7 @@ func (s *Server) runSingleTarget(ctx context.Context, scanCfg *config.Config, re
 		targetAuthB:        req.TargetAuthSecondary,
 		sourceRepo:         req.SourceRepo,
 		scanContext:        req.ScanContext,
+		tokenAuth:          req.TokenAuth,
 		llmClient:          s.scanLLMClientForRequest(req, scanCfg),
 	}
 	s.executeScanSession(sess)
@@ -933,6 +935,7 @@ func (s *Server) runDASTTarget(ctx context.Context, scanCfg *config.Config, req 
 		targetAuthB:        req.TargetAuthSecondary,
 		sourceRepo:         req.SourceRepo,
 		scanContext:        req.ScanContext,
+		tokenAuth:          req.TokenAuth,
 		llmClient:          s.scanLLMClientForRequest(req, scanCfg),
 	}
 	s.executeScanSession(sess)
@@ -1086,6 +1089,7 @@ func (s *Server) runWildcardTarget(ctx context.Context, scanCfg *config.Config, 
 			targetAuthB:        req.TargetAuthSecondary,
 			sourceRepo:         req.SourceRepo,
 			scanContext:        req.ScanContext,
+			tokenAuth:          req.TokenAuth,
 			llmClient:          s.scanLLMClientForRequest(req, scanCfg),
 		}
 		s.executeScanSession(discoverySess)
@@ -1432,6 +1436,7 @@ func (s *Server) runWildcardTarget(ctx context.Context, scanCfg *config.Config, 
 				targetAuthB:          req.TargetAuthSecondary,
 				sourceRepo:           req.SourceRepo,
 				scanContext:          req.ScanContext,
+				tokenAuth:            req.TokenAuth,
 				llmClient:            s.scanLLMClientForRequest(req, scanCfg),
 			}
 			s.executeScanSession(subSess)

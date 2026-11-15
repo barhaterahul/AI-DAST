@@ -5,8 +5,7 @@ import { useI18n } from "@/i18n";
 import { useTheme, type ThemeMode } from "@/store/theme";
 
 // Compact theme picker for the topbar. Switches between light, dark, and system
-// (follows the OS) immediately, persisted to localStorage. Mirrors the
-// language-switcher styling so the two controls sit together consistently.
+// (follows the OS) immediately, persisted to localStorage.
 export function ThemeToggle() {
   const { mode, resolved, setTheme } = useTheme();
   const { t } = useI18n();

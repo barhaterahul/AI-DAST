@@ -1,46 +1,8 @@
-// Translation dictionaries for the AI-DAST-ING dashboard.
-//
-// English is the source of truth: every key MUST exist in `en`. Other locales
-// may be partial — the `t()` helper falls back to the English string (and then
-// to the raw key) when a translation is missing, so a missing entry degrades
-// gracefully instead of rendering blank.
+// UI strings for the AI-DAST-ING dashboard (English only).
 //
 // Keys are dot-namespaced by surface (nav.*, topbar.*, common.*) so the map
-// stays browsable as coverage grows across the app.
-
-export type LanguageCode = "en" | "zh-CN";
-
-// Supported UI languages, in display order. Keep the `code` values in sync with
-// the backend config.SupportedLanguages() list.
-export const LANGUAGES: { code: LanguageCode; label: string; nativeLabel: string }[] = [
-  { code: "en", label: "English", nativeLabel: "English" },
-  { code: "zh-CN", label: "Simplified Chinese", nativeLabel: "简体中文" },
-];
-
-export const DEFAULT_LANGUAGE: LanguageCode = "en";
-
-export function isLanguageCode(value: string | null | undefined): value is LanguageCode {
-  return value === "en" || value === "zh-CN";
-}
-
-// Normalize a raw code/name (e.g. from the backend or localStorage) to a
-// supported LanguageCode, falling back to English for anything unknown.
-export function normalizeLanguage(raw: string | null | undefined): LanguageCode {
-  if (!raw) return DEFAULT_LANGUAGE;
-  const key = raw.trim().toLowerCase();
-  if (key === "en" || key === "en-us" || key === "english") return "en";
-  if (
-    key === "zh" ||
-    key === "zh-cn" ||
-    key === "zh_cn" ||
-    key === "zh-hans" ||
-    key === "chinese" ||
-    key === "simplified chinese"
-  ) {
-    return "zh-CN";
-  }
-  return DEFAULT_LANGUAGE;
-}
+// stays browsable. The t() helper falls back to the raw key when a string is
+// missing, so a missing entry degrades gracefully instead of rendering blank.
 
 type Dict = Record<string, string>;
 
@@ -50,15 +12,15 @@ const en: Dict = {
   "nav.newScan": "New Scan",
   "nav.scans": "Scans",
   "nav.schedules": "Schedules",
-  "nav.instances": "Instances",
+  "nav.exploration": "Exploration Graph",
   "nav.findings": "Findings",
   "nav.live": "Live Feed",
   "nav.reports": "Reports",
   "nav.integrations": "Integrations",
+  "nav.tokenProviders": "Token Providers",
   "nav.settings": "Settings",
   "sidebar.localScanner": "Local scanner",
   "sidebar.commandHint": "Ctrl+K for actions",
-  "sidebar.securityScanner": "security scanner",
   "sidebar.navigation": "Main navigation",
 
   // Topbar
@@ -191,13 +153,8 @@ const en: Dict = {
   "schedules.deleteSchedule": "Delete schedule",
 
   // Instances page
-  "instances.title": "Instances",
-  "instances.subtitle": "Active scan instances and global host pressure. Completed scans are historical records.",
-  "instances.allStatuses": "All statuses",
-  "instances.allModes": "All modes",
-  "instances.emptyTitle": "No instances match",
-  "instances.emptyDescription": "Adjust the search or filters to see more.",
-  "instances.loadError": "Could not load instances",
+  "exploration.title": "Exploration Graph",
+  "exploration.subtitle": "How each finding was found — from discovery to injection to proof.",
 
   // Integrations page
   "integrations.title": "Integrations",
@@ -252,215 +209,4 @@ const en: Dict = {
   "settings.searchVariables": "Search variables...",
 };
 
-const zhCN: Dict = {
-  // Sidebar navigation
-  "nav.overview": "概览",
-  "nav.newScan": "新建扫描",
-  "nav.scans": "扫描任务",
-  "nav.schedules": "计划任务",
-  "nav.instances": "实例",
-  "nav.findings": "漏洞发现",
-  "nav.live": "实时动态",
-  "nav.reports": "报告",
-  "nav.integrations": "集成",
-  "nav.settings": "设置",
-  "sidebar.localScanner": "本地扫描器",
-  "sidebar.commandHint": "按 Ctrl+K 打开操作面板",
-  "sidebar.securityScanner": "安全扫描器",
-  "sidebar.navigation": "主导航",
-
-  // Topbar
-  "topbar.searchLong": "搜索扫描、漏洞、操作…",
-  "topbar.searchShort": "搜索…",
-  "topbar.openPalette": "打开命令面板",
-  "topbar.toggleMenu": "切换菜单",
-  "topbar.newScan": "新建扫描",
-  "topbar.stopAll": "全部停止",
-  "topbar.scanning": "正在扫描",
-  "topbar.activeScan": "个进行中的扫描",
-  "topbar.activeScans": "个进行中的扫描",
-  "topbar.language": "语言",
-  "topbar.theme": "主题",
-  "theme.light": "浅色",
-  "theme.dark": "深色",
-  "theme.system": "跟随系统",
-
-  // Severity labels
-  "severity.critical": "严重",
-  "severity.high": "高危",
-  "severity.medium": "中危",
-  "severity.low": "低危",
-  "severity.info": "信息",
-
-  // Scan status labels
-  "status.running": "运行中",
-  "status.pending": "等待中",
-  "status.paused": "已暂停",
-  "status.saved": "已保存",
-  "status.completed": "已完成",
-  "status.finished": "已完成",
-  "status.stopped": "已停止",
-  "status.failed": "已失败",
-  "status.unknown": "未知",
-
-  // Common
-  "common.loading": "加载中…",
-  "common.save": "保存",
-  "common.cancel": "取消",
-  "common.open": "打开",
-  "common.delete": "删除",
-  "common.somethingWrong": "出错了",
-  "common.findings": "个漏洞",
-  "common.tokens": "个令牌",
-
-  // States
-  "states.noData": "暂无数据",
-
-  // Reports page
-  "reports.title": "报告",
-  "reports.subtitle": "为每个已完成的扫描生成 PDF 报告，由服务器按需生成。",
-  "reports.searchPlaceholder": "按目标或扫描 ID 搜索报告…",
-  "reports.emptyTitle": "暂无报告",
-  "reports.emptyDescription": "运行一次扫描后，PDF 报告将显示在此处。",
-  "reports.confirmDelete": "确定要永久删除此报告和扫描记录吗？",
-
-  // Overview page
-  "overview.title": "概览",
-  "overview.recentScans": "最近扫描",
-  "overview.liveActivity": "实时活动",
-  "overview.systemHealth": "系统健康",
-  "overview.criticalFindings": "严重漏洞",
-  "overview.findingMix": "漏洞分布",
-  "overview.operations": "运行统计",
-  "overview.latestScan": "最近一次扫描",
-
-  // Findings page
-  "findings.title": "漏洞发现",
-  "findings.allSeverities": "全部严重级别",
-
-  // Scans page
-  "scans.title": "扫描任务",
-  "scans.subtitle": "所有历史扫描与进行中的扫描。",
-  "scans.allStatuses": "全部状态",
-  "scans.col.findings": "漏洞数",
-  "scans.col.tokens": "令牌数",
-  "scans.col.started": "开始时间",
-  "scans.col.status": "状态",
-  "scans.col.actions": "操作",
-
-  // New Scan page
-  "newScan.back": "返回",
-  "newScan.heading": "开始新扫描",
-  "newScan.section.targets": "目标",
-  "newScan.label.targets": "目标 *",
-  "newScan.label.displayName": "显示名称（可选）",
-  "newScan.section.securityContext": "安全上下文（可选）",
-  "newScan.section.authAccess": "已认证访问（可选）",
-  "newScan.label.authSession": "已认证会话",
-  "newScan.label.secondAccount": "第二个账户（用于 IDOR/BOLA 验证）",
-  "newScan.section.targetAccess": "目标访问",
-  "newScan.section.reportBranding": "报告品牌",
-  "newScan.label.brandName": "目标品牌名称",
-  "newScan.label.brandLogo": "目标品牌 Logo",
-  "newScan.section.scanMode": "扫描模式",
-  "newScan.section.refinement": "细化设置",
-  "newScan.label.severityFilter": "严重级别筛选",
-  "newScan.label.customInstruction": "自定义指令",
-  "newScan.label.modelOverride": "模型覆盖",
-  "newScan.label.providerProfile": "提供商配置",
-  "newScan.btn.saveForLater": "稍后保存",
-  "newScan.btn.startScan": "开始扫描",
-
-  // Schedules page
-  "schedules.title": "计划任务",
-  "schedules.subtitle": "管理按配置的时间间隔运行的自动化周期性扫描。",
-  "schedules.new": "新建计划",
-  "schedules.create": "创建计划",
-  "schedules.emptyTitle": "暂无计划扫描",
-  "schedules.emptyDescription": "为你的目标范围设置自动化周期性测试。",
-  "schedules.never": "从未",
-  "schedules.label.name": "计划名称 *",
-  "schedules.label.interval": "频率间隔 *",
-  "schedules.label.runAt": "运行时间",
-  "schedules.label.timezone": "时区",
-  "schedules.label.targets": "目标 *",
-  "schedules.label.scanMode": "扫描模式",
-  "schedules.label.providerProfile": "提供商配置",
-  "schedules.label.reconAccess": "侦察访问",
-  "schedules.label.testingAccess": "测试访问",
-  "schedules.label.modelOverride": "模型覆盖",
-  "schedules.label.severityFilter": "严重级别筛选",
-  "schedules.label.companyName": "品牌公司名称",
-  "schedules.label.brandLogo": "目标品牌 Logo",
-  "schedules.saving": "保存中…",
-  "schedules.saveSchedule": "保存计划",
-  "schedules.runNow": "立即运行",
-  "schedules.editSettings": "编辑设置",
-  "schedules.deleteSchedule": "删除计划",
-
-  // Instances page
-  "instances.title": "实例",
-  "instances.subtitle": "活动扫描实例与全局主机负载。已完成的扫描为历史记录。",
-  "instances.allStatuses": "全部状态",
-  "instances.allModes": "全部模式",
-  "instances.emptyTitle": "没有匹配的实例",
-  "instances.emptyDescription": "请调整搜索或筛选条件以查看更多。",
-  "instances.loadError": "无法加载实例",
-
-  // Integrations page
-  "integrations.title": "集成",
-  "integrations.category.AI": "AI",
-  "integrations.category.Engagement": "测试参数",
-  "integrations.connected": "已连接",
-  "integrations.notConnected": "未连接",
-
-  // Live page
-  "live.title": "实时动态",
-
-
-  // Scan detail page
-  "scanDetail.phaseProgress": "阶段进度",
-  "scanDetail.riskOverview": "风险概览",
-  "scanDetail.wildcardCoverage": "通配符覆盖",
-  "scanDetail.tab.tokens": "Token 用量",
-  // Token usage tab
-  "scanDetail.token.total": "Token 总用量",
-  "scanDetail.token.requests": "LLM 请求数",
-  "scanDetail.token.agents": "按 Agent 统计",
-  "scanDetail.token.context": "上下文增长",
-  "scanDetail.token.contextHint": "每次 LLM 请求的 prompt token 数。曲线持续上升说明每次迭代都在重发不断增长的会话历史。",
-  "scanDetail.token.sources": "活跃上下文构成",
-  "scanDetail.token.sourcesHint": "每个 Agent 最近一次出站请求的近似构成。",
-  "scanDetail.token.recovery": "恢复循环",
-  "scanDetail.token.loading": "正在加载 Token 用量…",
-  "scanDetail.token.unavailable": "该扫描没有可用的 Token 用量数据。",
-  "scanDetail.tab.findings": "漏洞发现",
-  "scanDetail.tab.events": "事件",
-  "scanDetail.tab.subdomains": "子域名",
-  "scanDetail.tab.config": "配置",
-  "scanDetail.guideScan": "引导此扫描",
-
-  // Settings page
-  "settings.title": "设置",
-  "settings.tab.llm": "大模型",
-  "settings.tab.engagement": "测试参数",
-  "settings.tab.environment": "环境变量",
-  "settings.backup.title": "备份与迁移",
-  "settings.backup.desc":
-    "将完整配置（环境变量、LLM 配置文件、提供商密钥）导出为文件，或将之前的备份导入本实例。导入采用合并方式——文件中不存在的配置保持不变。",
-  "settings.backup.export": "导出配置",
-  "settings.backup.import": "导入配置",
-  "settings.backup.confirm": "将此备份导入到当前扫描器？",
-  "settings.tab.account": "账户",
-  "settings.card.llmProvider": "大模型提供商",
-  "settings.card.rateLimits": "速率限制",
-  "settings.card.account": "账户",
-  "settings.account.desc": "会话与访问权限。",
-  "settings.savedIndicator": "已保存",
-  "settings.searchVariables": "搜索变量…",
-};
-
-export const translations: Record<LanguageCode, Dict> = {
-  en,
-  "zh-CN": zhCN,
-};
+export const translations: Dict = en;

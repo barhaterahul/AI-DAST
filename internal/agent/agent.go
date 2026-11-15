@@ -2833,7 +2833,7 @@ func (a *Agent) emit(evt Event) {
 	evt.Timestamp = time.Now()
 	// Redact operator-supplied auth secrets from telemetry so credentials
 	// don't leak into the live event stream, scan logs, or PDF reports.
-	if len(a.secretValues) > 0 {
+	if len(a.secretValues) > 0 || (a.scanCtx != nil && len(httpclient.RedactionsForContext(a.scanCtx.ID)) > 0) {
 		evt.Content = a.redactSecrets(evt.Content)
 		if evt.ToolResult.Output != "" {
 			evt.ToolResult.Output = a.redactSecrets(evt.ToolResult.Output)
@@ -2903,6 +2903,14 @@ func (a *Agent) redactSecrets(s string) string {
 	for _, secret := range a.secretValues {
 		if secret != "" && strings.Contains(s, secret) {
 			s = strings.ReplaceAll(s, secret, "***REDACTED***")
+		}
+	}
+	// Credentials issued during the scan (token-provider refreshes).
+	if a.scanCtx != nil {
+		for _, secret := range httpclient.RedactionsForContext(a.scanCtx.ID) {
+			if strings.Contains(s, secret) {
+				s = strings.ReplaceAll(s, secret, "***REDACTED***")
+			}
 		}
 	}
 	return s

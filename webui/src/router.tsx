@@ -9,8 +9,9 @@ import FindingsPage from "@/pages/findings"
 import ReportsPage from "@/pages/reports"
 import IntegrationsPage from "@/pages/integrations"
 import LivePage from "@/pages/live"
-import InstancesPage from "@/pages/instances"
+import ExplorationPage from "@/pages/exploration"
 import SettingsPage from "@/pages/settings"
+import TokenProvidersPage from "@/pages/token-providers"
 import LoginPage from "@/pages/login"
 import NotFoundPage from "@/pages/not-found"
 import SchedulesPage from "@/pages/schedules"
@@ -47,7 +48,9 @@ const routes: RouteObject[] = [
       { path: "reports", element: <ReportsPage /> },
       { path: "integrations", element: <IntegrationsPage /> },
       { path: "live", element: <LivePage /> },
-      { path: "instances", element: <InstancesPage /> },
+      { path: "exploration", element: <ExplorationPage /> },
+      { path: "instances", element: <Navigate to="/exploration" replace /> },
+      { path: "token-providers", element: <TokenProvidersPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "404", element: <NotFoundPage /> },
       { path: "*", element: <Navigate to="/404" replace /> },

@@ -165,6 +165,10 @@ func executeWithContext(contextID string, guard tools.RequestGuard, args map[str
 	// override a header the caller set explicitly — so the agent can still
 	// send the SAME request unauthenticated (e.g. to prove an IDOR / auth
 	// bypass) by passing an empty/blank value for that header.
+	// appliedAuth records the session headers actually sent, so a 401 can be
+	// attributed to an expired session credential (and refreshed) rather
+	// than to the agent's own deliberate unauthenticated probe.
+	appliedAuth := map[string]string{}
 	if contextID != "" {
 		for name, val := range getSessionAuth(contextID) {
 			if _, explicit := hdrsProvided[strings.ToLower(name)]; explicit {
@@ -172,6 +176,7 @@ func executeWithContext(contextID string, guard tools.RequestGuard, args map[str
 			}
 			if req.Header.Get(name) == "" {
 				req.Header.Set(name, val)
+				appliedAuth[name] = val
 			}
 		}
 	}
@@ -208,6 +213,16 @@ func executeWithContext(contextID string, guard tools.RequestGuard, args map[str
 	if err != nil {
 		return tools.Result{}, fmt.Errorf("request failed: %w", err)
 	}
+	refreshNote := ""
+	if retry, note := retryWithRefreshedAuth(contextID, req, resp, appliedAuth); retry != nil {
+		resp.Body.Close()
+		start = time.Now()
+		resp, err = client.Do(retry)
+		if err != nil {
+			return tools.Result{}, fmt.Errorf("request failed after auth refresh: %w", err)
+		}
+		refreshNote = note
+	}
 	defer resp.Body.Close()
 
 	elapsed := time.Since(start)
@@ -215,6 +230,9 @@ func executeWithContext(contextID string, guard tools.RequestGuard, args map[str
 	var out strings.Builder
 	if note := refusedHop(); note != "" {
 		out.WriteString(note + "\n\n")
+	}
+	if refreshNote != "" {
+		out.WriteString(refreshNote + "\n\n")
 	}
 	out.WriteString(fmt.Sprintf("%s %s\n", resp.Proto, resp.Status))
 	out.WriteString(fmt.Sprintf("Request-Time: %.0fms\n\n", float64(elapsed.Microseconds())/1000))
@@ -381,4 +399,46 @@ func buildClient(timeoutSec int, followRedirects bool, tlsSkipVerify bool) (*htt
 	}
 
 	return c, nil
+}
+
+// retryWithRefreshedAuth returns a copy of req carrying refreshed session
+// credentials when resp rejected the session auth the request carried and a
+// refresher renewed it; otherwise nil. Only session headers that were applied
+// automatically are swapped, so explicit/blank overrides keep their meaning.
+func retryWithRefreshedAuth(contextID string, req *http.Request, resp *http.Response, applied map[string]string) (*http.Request, string) {
+	if contextID == "" || len(applied) == 0 {
+		return nil, ""
+	}
+	r := authRefresherFor(contextID)
+	if r == nil || !r.RefreshOn(resp.StatusCode) {
+		return nil, ""
+	}
+	if req.Body != nil && req.GetBody == nil {
+		return nil, "" // body cannot be replayed
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	if !r.Refresh(ctx, applied) {
+		return nil, ""
+	}
+	fresh := getSessionAuth(contextID)
+	retry := req.Clone(context.Background())
+	if req.GetBody != nil {
+		body, err := req.GetBody()
+		if err != nil {
+			return nil, ""
+		}
+		retry.Body = body
+	}
+	changed := false
+	for name, old := range applied {
+		if val, ok := fresh[name]; ok && val != old {
+			retry.Header.Set(name, val)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil, ""
+	}
+	return retry, fmt.Sprintf("Note: the target answered HTTP %d with the session token; the token provider issued a fresh token and the request was retried once (response below is the retry).", resp.StatusCode)
 }

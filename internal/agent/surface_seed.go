@@ -14,6 +14,7 @@ package agent
 
 import (
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/attacksurface"
@@ -97,8 +98,77 @@ func (a *Agent) seedLedgerFromSurface(res *attacksurface.Result) int {
 		if l.Len() > before {
 			seeded++
 		}
+		// Parameter-driven hypotheses: collections (Postman/Bruno) record
+		// where each input lives, which points at the right vuln class.
+		for _, h := range paramHypotheses(e, host, path, role, origin) {
+			if seeded >= maxSurfaceSeed {
+				break
+			}
+			before := l.Len()
+			l.Upsert(h)
+			if l.Len() > before {
+				seeded++
+			}
+		}
 	}
 	return seeded
+}
+
+var (
+	urlParamRe   = regexp.MustCompile(`(?i)(^|[._-])(url|uri|link|href|callback|webhook|redirect|return|returnto|next|dest|destination|target|image|img|feed|proxy|endpoint)($|[._-]|url|uri)`)
+	privParamRe  = regexp.MustCompile(`(?i)(^|\.)(role|roles|is_?admin|admin|permissions?|scopes?|owner_?id|tenant_?id|account_?type|plan|verified|status|group_?ids?)$`)
+	queryParamRe = regexp.MustCompile(`(?i)^(q|query|search|filter|sort|order|orderby|where|name|email|username|term)$`)
+)
+
+// paramHypotheses derives targeted hypotheses from an endpoint's parameters
+// and their locations (path/query/header/body), at most one per class.
+func paramHypotheses(e attacksurface.Endpoint, host, path, role, origin string) []scanctx.Hypothesis {
+	if len(e.Params) == 0 {
+		return nil
+	}
+	method := strings.ToUpper(strings.TrimSpace(e.Method))
+	var out []scanctx.Hypothesis
+	seen := map[string]bool{}
+	add := func(class, param, title, next string, conf float64) {
+		if seen[class] {
+			return
+		}
+		seen[class] = true
+		out = append(out, scanctx.Hypothesis{
+			Title:      title + " " + method + " " + path,
+			VulnClass:  class,
+			Target:     host,
+			Endpoint:   path,
+			Parameter:  param,
+			Role:       role,
+			Confidence: conf,
+			Status:     scanctx.HypothesisQueued,
+			Origin:     origin,
+			NextAction: next,
+		})
+	}
+	for _, p := range e.Params {
+		loc := e.ParamLocations[p]
+		leaf := p
+		if i := strings.LastIndexByte(p, '.'); i >= 0 {
+			leaf = p[i+1:]
+		}
+		switch {
+		case urlParamRe.MatchString(leaf):
+			add("ssrf", p, "URL-valued input "+p+" on", "Point "+p+" at an out-of-band canary and internal/metadata addresses; check for server-side fetch, then for open redirect.", 0.45)
+		case loc == "body" && privParamRe.MatchString(p) && (method == "POST" || method == "PUT" || method == "PATCH"):
+			add("auth_bypass", p, "Privilege field "+p+" (mass assignment) on", "Send the request as role A with "+p+" set to a privileged value (admin/other tenant/owner of another object); verify whether the change sticks.", 0.45)
+		case (loc == "query" || loc == "body") && queryParamRe.MatchString(leaf):
+			add("sqli", p, "Search/filter input "+p+" on", "Test "+p+" for SQL/NoSQL injection (boolean/time-based, operator injection for JSON bodies).", 0.35)
+		}
+	}
+	if e.BodyMode == "graphql" {
+		add("info_disclosure", "query", "GraphQL endpoint", "Check introspection, field suggestions, batching/aliasing limits and per-field authorization with role B.", 0.4)
+	}
+	if e.BodyMode == "xml" {
+		add("xxe", "", "XML body on", "Test the XML body for XXE (external entity, parameter entity OOB).", 0.4)
+	}
+	return out
 }
 
 // splitSurfaceEndpoint returns (host, path) for an attack-surface endpoint whose

@@ -43,6 +43,7 @@ import (
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/scanctx"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/scopeguard"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/storage"
+	"github.com/barhaterahul/ai-dast-ing/v4/internal/tokenprovider"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/browser"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/notes"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/reporting"
@@ -411,6 +412,10 @@ type ScanRequest struct {
 	// The engine parses them into a seeded attack surface (real endpoints +
 	// params) and harvests any captured auth. Empty = crawl-only discovery.
 	ScanContext string `json:"scan_context"`
+	// TokenAuth selects a configured token provider (see token_providers.go)
+	// that issues and refreshes the scan's credentials — e.g. a JWT from a
+	// custom token API. When set it supersedes TargetAuth/TargetAuthSecondary.
+	TokenAuth *TokenAuthSelection `json:"token_auth,omitempty"`
 	// ProviderProfile is the optional "<provider>:<profileId>" key
 	// (e.g. "openai:default") that selects an Auth_Profile from
 	// Profile_Store for this scan. When set on a request from an
@@ -690,12 +695,15 @@ type ScanInstance struct {
 	// on-disk instance record or exposed via the API. Survives save→start
 	// within the running process; a process restart drops them (the operator
 	// re-enters auth), which is the safe default for secrets.
-	TargetAuth          string        `json:"-"`
-	TargetAuthSecondary string        `json:"-"`
-	SourceRepo          string        `json:"-"`
-	ScanContext         string        `json:"-"`
-	Vulns               []VulnSummary `json:"vulns,omitempty"`
-	CurrentPhase        int           `json:"current_phase,omitempty"`
+	TargetAuth          string `json:"-"`
+	TargetAuthSecondary string `json:"-"`
+	SourceRepo          string `json:"-"`
+	ScanContext         string `json:"-"`
+	// TokenAuth holds only provider/profile names (secrets live in the
+	// provider store), so it is safe to persist and survives restarts.
+	TokenAuth    *TokenAuthSelection `json:"token_auth,omitempty"`
+	Vulns        []VulnSummary       `json:"vulns,omitempty"`
+	CurrentPhase int                 `json:"current_phase,omitempty"`
 	// Wildcard progress is mirrored from the persisted parent record so the
 	// exact instance endpoint can serve a complete snapshot without a data-dir
 	// walk. SubScans intentionally omits `omitempty`: an empty array is the
@@ -1202,6 +1210,12 @@ func (s *Server) Start() error {
 			s.handleScanTokenUsage(w, r)
 			return
 		}
+		// GET /api/scans/{id}/graph?scope=findings|all — exploration graph
+		// (how each finding was reached). Checked before the detail handler.
+		if strings.HasSuffix(r.URL.Path, "/graph") && r.Method == http.MethodGet {
+			s.handleScanGraph(w, r)
+			return
+		}
 		// GET /api/scans/{id}/events?offset=&limit= — lazy-page the event log
 		// that the detail response only tails. Must be checked before the
 		// generic detail handler.
@@ -1222,6 +1236,10 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/upload-instructions", s.handleUploadInstructions)
 	mux.HandleFunc("/api/upload-logo", s.handleUploadLogo)
 	mux.HandleFunc("/api/upload-context", s.handleUploadContext)
+	mux.HandleFunc("/api/collection/resolve", s.handleCollectionResolve)
+	mux.HandleFunc("/api/token-status/", s.handleTokenStatus)
+	mux.HandleFunc("/api/token-providers", s.handleTokenProviders)
+	mux.HandleFunc("/api/token-providers/", s.handleTokenProviders)
 	mux.HandleFunc("/api/upload-source", s.handleUploadSource)
 	// Serve uploaded logos
 	logosDir := filepath.Join(s.dataDir, "logos")
@@ -1696,6 +1714,13 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Collection/spec scans: with no explicit targets, derive them from the
+	// uploaded context's base URLs (scheme://host). They go through the same
+	// self-scan/local-target checks below as typed targets.
+	if len(req.Targets) == 0 && !isCodeScan && strings.TrimSpace(req.ScanContext) != "" {
+		req.Targets = s.targetsFromContext(req.ScanContext)
+	}
+
 	if len(req.Targets) == 0 {
 		http.Error(w, "targets required (or provide source_repo with code_scan=review|provision)", http.StatusBadRequest)
 		return
@@ -1800,6 +1825,7 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 			TargetAuthSecondary: req.TargetAuthSecondary,
 			SourceRepo:          req.SourceRepo,
 			ScanContext:         req.ScanContext,
+			TokenAuth:           req.TokenAuth,
 		}
 		chatCfg := scanCfg
 		inst.chatCfg = &chatCfg
@@ -2809,6 +2835,7 @@ func (s *Server) handleInstanceAction(w http.ResponseWriter, r *http.Request) {
 		targetAuthB := inst.TargetAuthSecondary
 		sourceRepo := inst.SourceRepo
 		scanContext := inst.ScanContext
+		tokenAuth := inst.TokenAuth
 		inst.mu.RUnlock()
 
 		// Build a new ScanRequest from stored config
@@ -2827,6 +2854,7 @@ func (s *Server) handleInstanceAction(w http.ResponseWriter, r *http.Request) {
 			TargetAuthSecondary: targetAuthB,
 			SourceRepo:          sourceRepo,
 			ScanContext:         scanContext,
+			TokenAuth:           tokenAuth,
 		}
 
 		scanCfg := *s.cfg // shallow copy
@@ -2867,6 +2895,7 @@ func (s *Server) handleInstanceAction(w http.ResponseWriter, r *http.Request) {
 			TargetAuthSecondary: inst.TargetAuthSecondary,
 			SourceRepo:          inst.SourceRepo,
 			ScanContext:         inst.ScanContext,
+			TokenAuth:           inst.TokenAuth,
 		}
 		inst.mu.RUnlock()
 
@@ -3071,8 +3100,10 @@ type scanSession struct {
 	targetAuthB         string               // per-scan second account for IDOR/BOLA (see ScanRequest.TargetAuthSecondary)
 	sourceRepo          string               // per-scan whitebox source repo/path (see ScanRequest.SourceRepo)
 	scanContext         string               // per-scan attack-surface context path (see ScanRequest.ScanContext)
-	codeScanMode        agent.CodeScanMode   // code-first scan mode (see ScanRequest.CodeScan)
-	allowLoopbackPorts  []int                // per-scan loopback allowlist for provision scans (scope-guard exemption)
+	tokenAuth           *TokenAuthSelection  // per-scan token provider selection (see ScanRequest.TokenAuth)
+	tokenManager        *tokenprovider.Manager
+	codeScanMode        agent.CodeScanMode // code-first scan mode (see ScanRequest.CodeScan)
+	allowLoopbackPorts  []int              // per-scan loopback allowlist for provision scans (scope-guard exemption)
 
 	// llmClient, when non-nil, is a pre-built llm.Client carrying
 	// a per-scan endpoint resolver derived from the originating
@@ -3257,6 +3288,31 @@ func sanitizeTarget(target string) string {
 	return clean
 }
 
+// reservedDataDirNames are top-level entries of the data dir that a scan
+// target folder must never collide with.
+var reservedDataDirNames = map[string]bool{
+	"logos": true, "context": true, "sources": true, "uploads": true,
+	"auth": true, "tmp": true, "token_providers.json": true,
+}
+
+// targetDirName is the single, filesystem-safe top-level folder name for a
+// target's scans (e.g. "http://localhost:8080/app" -> "localhost_8080_app").
+// Using the raw target produced nested folders like "http:/localhost:8080/",
+// a ':' that is invalid on Windows, and — for a target containing ".." — a
+// path outside the data dir. Scan discovery walks the tree recursively, so
+// scans stored under the old layout stay readable.
+func targetDirName(target string) string {
+	name := sanitizeTarget(strings.TrimSpace(target))
+	name = strings.Trim(name, ".")
+	if name == "" {
+		name = "target"
+	}
+	if reservedDataDirNames[strings.ToLower(name)] {
+		name += "_target"
+	}
+	return name
+}
+
 // saveScanRecordTo saves a scan record to a specific directory.
 func (s *Server) saveScanRecordTo(rec *ScanRecord, scanDir string) {
 	if scanDir == "" {
@@ -3268,6 +3324,10 @@ func (s *Server) saveScanRecordTo(rec *ScanRecord, scanDir string) {
 		log.Printf("Warning: low disk space (%d MB available), scan record may fail to save", avail/1024/1024)
 		s.broadcast(WSEvent{Type: "error", Content: fmt.Sprintf("⚠️ Low disk space: %d MB remaining. Scan data may not be saved.", avail/1024/1024)})
 	}
+
+	// Operator-deleted findings never come back, whichever in-memory copy of
+	// the record is being saved (see finding_tombstones.go).
+	rec.Vulns = withoutTombstoned(rec.Vulns, readFindingTombstones(scanDir))
 
 	data, err := json.MarshalIndent(rec, "", "  ")
 	if err != nil {
@@ -3793,20 +3853,53 @@ func (s *Server) handleDeleteVuln(w http.ResponseWriter, r *http.Request) {
 	}
 	rec.Vulns = filtered
 
-	// Persist to disk
+	// Record the deletion durably first: a running scan re-saves its own copy
+	// of the record, and saveScanRecordTo filters tombstoned IDs out of it.
 	if dir != "" {
+		if err := addFindingTombstone(dir, vulnID); err != nil {
+			log.Printf("[VULN] could not record deletion of %s in %s: %v", vulnID, dir, err)
+		}
 		s.saveScanRecordTo(rec, dir)
 	}
 
-	// Update in-memory instance if present
+	// Update in-memory instance if present, and drop the finding from the
+	// agent's reporting store too: records are re-merged from that store when
+	// the scan finishes or resumes, which otherwise resurrects the deletion.
+	// Live instances are keyed by instance ID, which differs from the scan
+	// record ID used in this URL, so try every ID that names this scan.
 	s.instancesMu.Lock()
-	if inst := s.instances[scanID]; inst != nil {
+	seenInst := map[*ScanInstance]bool{}
+	for _, id := range []string{scanID, rec.ID, rec.InstanceID} {
+		inst := s.instances[id]
+		if id == "" || inst == nil || seenInst[inst] {
+			continue
+		}
+		seenInst[inst] = true
 		inst.mu.Lock()
-		inst.Vulns = filtered
-		inst.VulnCount = len(filtered)
+		kept := make([]VulnSummary, 0, len(inst.Vulns))
+		for _, v := range inst.Vulns {
+			if v.ID != vulnID {
+				kept = append(kept, v)
+			}
+		}
+		inst.Vulns = kept
+		inst.VulnCount = len(kept)
+		if inst.sctx != nil {
+			if _, err := reporting.RemoveVulnerabilityFromContext(inst.sctx.ID, vulnID); err != nil {
+				log.Printf("[VULN] deleted %s from scan record but could not update finding checkpoint: %v", vulnID, err)
+			}
+		}
 		inst.mu.Unlock()
 	}
 	s.instancesMu.Unlock()
+	// Scans without a live store (finished/stopped) still carry the finding in
+	// their findings.json checkpoint; drop it there so a resume cannot restore
+	// it. A no-op when the live store above already rewrote the file.
+	if dir != "" {
+		if _, err := reporting.RemoveVulnerabilityFromCheckpoint(dir, vulnID); err != nil {
+			log.Printf("[VULN] deleted %s from scan record but could not update %s/findings.json: %v", vulnID, dir, err)
+		}
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"status": "deleted", "removed": removed, "remaining": len(filtered)})

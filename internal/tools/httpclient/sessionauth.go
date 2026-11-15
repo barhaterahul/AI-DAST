@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"context"
 	"strings"
 	"sync"
 )
@@ -189,4 +190,83 @@ func isHeaderName(tok string) bool {
 		}
 	}
 	return true
+}
+
+// AuthRefresher renews the auto-applied session credential (role A) for a scan
+// context — typically a token-provider manager keeping a JWT fresh. When a
+// target rejects a request that carried session auth with a status the
+// refresher cares about (e.g. 401), http_request asks it for a new credential
+// and retries the request exactly once.
+type AuthRefresher interface {
+	// RefreshOn reports whether a response status should trigger a refresh.
+	RefreshOn(status int) bool
+	// Refresh replaces the credential the target rejected (staleHeaders are
+	// the session headers the failed request carried). It must update the
+	// session auth (SetSessionAuth) and return true when a newer credential
+	// is in place.
+	Refresh(ctx context.Context, staleHeaders map[string]string) bool
+}
+
+var (
+	refresherMu sync.RWMutex
+	refreshers  = map[string]AuthRefresher{}
+)
+
+// SetAuthRefresher registers (or, with nil, clears) the refresher for a scan
+// context.
+func SetAuthRefresher(contextID string, r AuthRefresher) {
+	refresherMu.Lock()
+	defer refresherMu.Unlock()
+	if r == nil {
+		delete(refreshers, contextID)
+		return
+	}
+	refreshers[contextID] = r
+}
+
+func authRefresherFor(contextID string) AuthRefresher {
+	refresherMu.RLock()
+	defer refresherMu.RUnlock()
+	return refreshers[contextID]
+}
+
+// Redaction registry: values (issued tokens, refresh tokens, token-API
+// secrets) that must be scrubbed from a scan's telemetry. Token providers
+// register every credential they obtain, so tokens issued mid-scan by a
+// refresh are redacted just like the operator's initial auth.
+var (
+	redactMu   sync.RWMutex
+	redactions = map[string][]string{}
+)
+
+const maxRedactionsPerContext = 256
+
+// RegisterRedactions adds values (>= 8 chars) to a context's redaction list.
+func RegisterRedactions(contextID string, values ...string) {
+	redactMu.Lock()
+	defer redactMu.Unlock()
+	list := redactions[contextID]
+outer:
+	for _, v := range values {
+		if len(strings.TrimSpace(v)) < 8 {
+			continue
+		}
+		for _, have := range list {
+			if have == v {
+				continue outer
+			}
+		}
+		list = append(list, v)
+	}
+	if len(list) > maxRedactionsPerContext {
+		list = list[len(list)-maxRedactionsPerContext:]
+	}
+	redactions[contextID] = list
+}
+
+// RedactionsForContext returns a copy of the context's redaction values.
+func RedactionsForContext(contextID string) []string {
+	redactMu.RLock()
+	defer redactMu.RUnlock()
+	return append([]string(nil), redactions[contextID]...)
 }

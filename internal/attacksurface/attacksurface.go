@@ -37,7 +37,16 @@ type Endpoint struct {
 	Path   string   // path or full URL
 	Params []string // query/path/body parameter names
 	Body   string   // truncated example body, when available
-	Source string   // "openapi" | "har" | "postman"
+	Source string   // "openapi" | "har" | "postman" | "bruno" | …
+
+	// Collection metadata (Postman/Bruno); empty for other formats.
+	ID             string            `json:",omitempty"` // stable request id (for exclusion)
+	Name           string            `json:",omitempty"` // request name in the collection
+	Folder         string            `json:",omitempty"` // folder path, "/"-separated
+	Headers        map[string]string `json:",omitempty"` // non-auth request headers
+	ContentType    string            `json:",omitempty"`
+	BodyMode       string            `json:",omitempty"` // json | form | multipart | graphql | xml | text
+	ParamLocations map[string]string `json:",omitempty"` // param -> path | query | header | body
 }
 
 func (e Endpoint) key() string {
@@ -52,6 +61,13 @@ type Result struct {
 	Formats     []string // which artifact formats were parsed
 	Notes       []string // security schemes, warnings, etc.
 	TextContext []string // operator-supplied prose; never inferred as endpoints
+
+	// Collection-specific (Postman/Bruno).
+	Environments   []string // environment names available for selection
+	Environment    string   // environment actually used
+	MissingVars    []string // {{variables}} that could not be resolved
+	ScriptsSkipped int      // pre-request/test scripts present but never executed
+	Excluded       int      // requests dropped by the operator's selection
 }
 
 const (
@@ -106,8 +122,14 @@ func LoadFromPath(path string) (*Result, error) {
 
 	merged := &Result{AuthHeaders: map[string]string{}}
 	// In directory mode, harvest Postman environment/globals variables up front
-	// so a collection's {{placeholders}} resolve against a sibling env file.
-	var postmanVars map[string]string
+	// so a collection's {{placeholders}} resolve against a sibling env file,
+	// and honor the operator's saved selection (environment, overrides,
+	// excluded requests).
+	var cc *postmanCtx
+	opts := Options{}
+	if info.IsDir() {
+		opts = ReadSelection(path)
+	}
 	parseInto := func(p string) {
 		// ZIP-based Android artifacts are streamed from disk: reading a
 		// multi-hundred-MB APK into memory just to hand it to a zip reader
@@ -127,16 +149,24 @@ func LoadFromPath(path string) (*Result, error) {
 		if err != nil || len(data) == 0 {
 			return
 		}
-		if r := parseBytes(data, filepath.Base(p), postmanVars); r != nil {
+		if r := parseBytesWith(data, filepath.Base(p), cc); r != nil {
 			merged.merge(r)
 		}
 	}
 
 	if info.IsDir() {
-		postmanVars = collectPostmanVars(path)
+		cc = collectPostmanCtx(path, opts)
+		// A directory holding .bru files (or bruno.json) is a Bruno
+		// collection: parse it as a tree so folders, environments and
+		// collection-level settings apply.
+		if isBrunoDir(path) {
+			if r := parseBrunoFS(os.DirFS(path), opts); r != nil {
+				merged.merge(r)
+			}
+		}
 		entries, _ := os.ReadDir(path)
 		for _, e := range entries {
-			if e.IsDir() {
+			if e.IsDir() || e.Name() == SelectionFile || strings.EqualFold(filepath.Ext(e.Name()), ".bru") {
 				continue
 			}
 			parseInto(filepath.Join(path, e.Name()))
@@ -159,20 +189,31 @@ func LoadFromPath(path string) (*Result, error) {
 // ParseBytes autodetects the artifact format and parses it. Returns nil when
 // the format is unrecognized or the content is unusable.
 func ParseBytes(data []byte, name string) *Result {
-	return parseBytes(data, name, nil)
+	return parseBytesWith(data, name, nil)
 }
 
-// parseBytes is ParseBytes with optional Postman variables gathered from
-// sibling environment/globals files in a directory upload, used to resolve
-// {{placeholders}} when the artifact is a Postman collection.
-func parseBytes(data []byte, name string, postmanVars map[string]string) *Result {
+// parseBytesWith is ParseBytes with collection context gathered from sibling
+// files in a directory upload (Postman environments/globals and the
+// operator's selection).
+func parseBytesWith(data []byte, name string, cc *postmanCtx) *Result {
 	trimmed := strings.TrimSpace(string(data))
 	if trimmed == "" {
 		return nil
 	}
-	// APK (Android app) — a ZIP archive. Detect by the ZIP local-file magic.
+	opts := Options{}
+	if cc != nil {
+		opts = cc.opts
+	}
+	// ZIP: a Bruno collection export, else an APK (Android app).
 	if len(data) >= 4 && data[0] == 'P' && data[1] == 'K' && (data[2] == 0x03 || data[2] == 0x05 || data[2] == 0x07) {
+		if r := parseBrunoZip(data, opts); r != nil {
+			return r
+		}
 		return parseAPK(data)
+	}
+	// A single .bru request file.
+	if strings.EqualFold(filepath.Ext(name), ".bru") {
+		return parseBrunoSingle(data, name, opts)
 	}
 	// JSON artifacts: HAR, Postman, or OpenAPI/Swagger in JSON.
 	if strings.HasPrefix(trimmed, "{") {
@@ -184,7 +225,9 @@ func parseBytes(data []byte, name string, postmanVars map[string]string) *Result
 			case hasKey(probe, "log"):
 				return parseHAR(data)
 			case hasKey(probe, "item") && hasKey(probe, "info"):
-				return parsePostman(data, postmanVars)
+				return parsePostmanWith(data, cc)
+			case isBrunoJSONExport(probe):
+				return parseBrunoJSON(data, opts)
 			case hasKey(probe, "paths"):
 				return parseOpenAPIJSON(data)
 			}
@@ -460,285 +503,6 @@ func parseHAR(data []byte) *Result {
 	return res
 }
 
-// ── Postman collection (v2.x) + environment ─────────────────────────────────
-
-type postmanColl struct {
-	Item     []postmanItem `json:"item"`
-	Variable []postmanVar  `json:"variable"` // collection-level variables
-	Auth     *postmanAuth  `json:"auth"`     // collection-level default auth
-}
-
-type postmanItem struct {
-	Name    string          `json:"name"`
-	Item    []postmanItem   `json:"item"` // folders nest items
-	Request *postmanRequest `json:"request"`
-	Auth    *postmanAuth    `json:"auth"` // folder-level auth (cascades to children)
-}
-
-type postmanRequest struct {
-	Method string `json:"method"`
-	Header []struct {
-		Key   string `json:"key"`
-		Value string `json:"value"`
-	} `json:"header"`
-	URL  json.RawMessage `json:"url"` // string OR object
-	Auth *postmanAuth    `json:"auth"`
-	Body struct {
-		Raw string `json:"raw"`
-	} `json:"body"`
-}
-
-// postmanVar is one variable from a collection's variable[] list or an
-// environment/globals export's values[] list. Postman disables collection
-// variables with "disabled":true and environment values with "enabled":false —
-// both are honored so we don't resolve against a value the operator turned off.
-type postmanVar struct {
-	Key      string `json:"key"`
-	Value    string `json:"value"`
-	Disabled bool   `json:"disabled"`
-	Enabled  *bool  `json:"enabled"`
-}
-
-func (v postmanVar) active() bool {
-	if v.Disabled || strings.TrimSpace(v.Key) == "" {
-		return false
-	}
-	return v.Enabled == nil || *v.Enabled
-}
-
-// postmanAuth is a Postman auth block, which can sit at collection, folder, or
-// request level. Only the fields for the selected Type are populated.
-type postmanAuth struct {
-	Type   string          `json:"type"`
-	Bearer []postmanAuthKV `json:"bearer"`
-	Basic  []postmanAuthKV `json:"basic"`
-	APIKey []postmanAuthKV `json:"apikey"`
-}
-
-type postmanAuthKV struct {
-	Key   string `json:"key"`
-	Value string `json:"value"`
-}
-
-func authKVGet(kvs []postmanAuthKV, key string) string {
-	for _, kv := range kvs {
-		if strings.EqualFold(strings.TrimSpace(kv.Key), key) {
-			return kv.Value
-		}
-	}
-	return ""
-}
-
-// parsePostman parses a Postman v2.x collection. extraVars carries variables
-// from sibling environment/globals files (a multi-file upload), which are
-// overlaid on the collection's own variables so {{placeholders}} in URLs,
-// headers, bodies, and auth blocks resolve to real values.
-func parsePostman(data []byte, extraVars map[string]string) *Result {
-	var coll postmanColl
-	if err := json.Unmarshal(data, &coll); err != nil {
-		return nil
-	}
-	// Collection variables are defaults; an attached environment overrides them.
-	vars := map[string]string{}
-	for _, v := range coll.Variable {
-		if v.active() {
-			vars[v.Key] = v.Value
-		}
-	}
-	for k, val := range extraVars {
-		vars[k] = val
-	}
-
-	res := &Result{AuthHeaders: map[string]string{}, Formats: []string{"postman"}}
-	// Collection-level auth applies to every request that doesn't override it.
-	if name, val := postmanAuthHeader(coll.Auth, vars); name != "" {
-		res.AuthHeaders[canonicalHeader(name)] = val
-	}
-
-	var walk func(items []postmanItem, inherited *postmanAuth)
-	walk = func(items []postmanItem, inherited *postmanAuth) {
-		for _, it := range items {
-			eff := inherited
-			if it.Auth != nil { // folder-level auth cascades to nested items
-				eff = it.Auth
-			}
-			if len(it.Item) > 0 {
-				walk(it.Item, eff)
-			}
-			if it.Request == nil {
-				continue
-			}
-			rawURL := resolvePostmanVars(postmanURL(it.Request.URL), vars)
-			if rawURL == "" {
-				continue
-			}
-			res.Endpoints = append(res.Endpoints, Endpoint{
-				Method: strings.ToUpper(it.Request.Method),
-				Path:   stripQuery(rawURL),
-				Body:   truncate(resolvePostmanVars(it.Request.Body.Raw, vars), maxBodyChars),
-				Source: "postman",
-			})
-			for _, h := range it.Request.Header {
-				val := resolvePostmanVars(h.Value, vars)
-				if isAuthHeader(h.Key) && strings.TrimSpace(val) != "" {
-					res.AuthHeaders[canonicalHeader(h.Key)] = val
-				}
-			}
-			// Request-level auth block (e.g. bearer token {{access_token}}),
-			// falling back to the inherited folder/collection auth.
-			ra := it.Request.Auth
-			if ra == nil {
-				ra = eff
-			}
-			if name, val := postmanAuthHeader(ra, vars); name != "" {
-				res.AuthHeaders[canonicalHeader(name)] = val
-			}
-		}
-	}
-	walk(coll.Item, coll.Auth)
-	return res
-}
-
-// postmanAuthHeader renders a Postman auth block as a single HTTP header,
-// resolving {{variables}}. Returns ("","") for empty, query-param, or
-// unsupported auth. This is how Postman most commonly stores credentials — the
-// token itself typically lives in an environment file as {{access_token}}.
-func postmanAuthHeader(auth *postmanAuth, vars map[string]string) (string, string) {
-	if auth == nil {
-		return "", ""
-	}
-	switch strings.ToLower(strings.TrimSpace(auth.Type)) {
-	case "bearer":
-		tok := strings.TrimSpace(resolvePostmanVars(authKVGet(auth.Bearer, "token"), vars))
-		if tok == "" {
-			return "", ""
-		}
-		return "Authorization", "Bearer " + tok
-	case "basic":
-		user := resolvePostmanVars(authKVGet(auth.Basic, "username"), vars)
-		pass := resolvePostmanVars(authKVGet(auth.Basic, "password"), vars)
-		if strings.TrimSpace(user) == "" && strings.TrimSpace(pass) == "" {
-			return "", ""
-		}
-		return "Authorization", "Basic " + base64.StdEncoding.EncodeToString([]byte(user+":"+pass))
-	case "apikey":
-		val := strings.TrimSpace(resolvePostmanVars(authKVGet(auth.APIKey, "value"), vars))
-		if val == "" {
-			return "", ""
-		}
-		if strings.EqualFold(strings.TrimSpace(authKVGet(auth.APIKey, "in")), "query") {
-			return "", "" // query-param keys aren't request headers
-		}
-		name := strings.TrimSpace(resolvePostmanVars(authKVGet(auth.APIKey, "key"), vars))
-		if name == "" {
-			name = "X-Api-Key" // Postman's default when the key name is blank
-		}
-		return name, val
-	}
-	return "", ""
-}
-
-var postmanVarRe = regexp.MustCompile(`\{\{([^{}]+)\}\}`)
-
-// resolvePostmanVars replaces {{variable}} placeholders using vars. Unknown
-// placeholders are left intact — a partially-resolved URL still seeds a more
-// useful surface than a raw {{host}} that no HTTP client could reach.
-func resolvePostmanVars(s string, vars map[string]string) string {
-	if s == "" || len(vars) == 0 || !strings.Contains(s, "{{") {
-		return s
-	}
-	return postmanVarRe.ReplaceAllStringFunc(s, func(m string) string {
-		if v, ok := vars[strings.TrimSpace(m[2:len(m)-2])]; ok {
-			return v
-		}
-		return m
-	})
-}
-
-// postmanEnv is a Postman environment or globals export.
-type postmanEnv struct {
-	Values []postmanVar `json:"values"`
-}
-
-// parsePostmanEnv extracts variables from a Postman environment/globals export
-// (shape: {"values":[{key,value,enabled}], …} with no "item"). Returns nil when
-// the bytes are not such a file, so it's safe to try on every uploaded file.
-func parsePostmanEnv(data []byte) map[string]string {
-	if !strings.HasPrefix(strings.TrimSpace(string(data)), "{") {
-		return nil
-	}
-	var probe map[string]json.RawMessage
-	if json.Unmarshal(data, &probe) != nil {
-		return nil
-	}
-	// An environment/globals file has "values" but is neither a collection
-	// ("item") nor an OpenAPI spec ("paths"/"swagger"/"openapi").
-	if !hasKey(probe, "values") || hasKey(probe, "item") ||
-		hasKey(probe, "paths") || hasKey(probe, "swagger") || hasKey(probe, "openapi") {
-		return nil
-	}
-	var env postmanEnv
-	if json.Unmarshal(data, &env) != nil {
-		return nil
-	}
-	out := map[string]string{}
-	for _, v := range env.Values {
-		if v.active() {
-			out[v.Key] = v.Value
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-// collectPostmanVars scans a directory for Postman environment/globals exports
-// and merges their variables so sibling collections can resolve {{placeholders}}
-// (tokens, base URLs, ids) — the core of multi-file Postman support.
-func collectPostmanVars(dir string) map[string]string {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	vars := map[string]string{}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
-		if err != nil || len(data) == 0 {
-			continue
-		}
-		for k, v := range parsePostmanEnv(data) {
-			vars[k] = v
-		}
-	}
-	if len(vars) == 0 {
-		return nil
-	}
-	return vars
-}
-
-func postmanURL(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	// URL can be a bare string.
-	var s string
-	if json.Unmarshal(raw, &s) == nil && s != "" {
-		return s
-	}
-	// Or an object with a "raw" field.
-	var obj struct {
-		Raw string `json:"raw"`
-	}
-	if json.Unmarshal(raw, &obj) == nil {
-		return obj.Raw
-	}
-	return ""
-}
-
 // ── Burp Suite export (proxy history / site map XML) ────────────────────────
 
 type burpItems struct {
@@ -998,29 +762,51 @@ func (r *Result) merge(other *Result) {
 	r.Formats = append(r.Formats, other.Formats...)
 	r.Notes = append(r.Notes, other.Notes...)
 	r.TextContext = append(r.TextContext, other.TextContext...)
+	r.Environments = append(r.Environments, other.Environments...)
+	if r.Environment == "" {
+		r.Environment = other.Environment
+	}
+	r.MissingVars = append(r.MissingVars, other.MissingVars...)
+	r.ScriptsSkipped += other.ScriptsSkipped
+	r.Excluded += other.Excluded
 }
 
 func (r *Result) finalize() {
 	// Dedup endpoints by "METHOD path", merging params.
 	seen := map[string][]string{}
 	order := []string{}
-	bodies := map[string]string{}
-	srcs := map[string]string{}
+	first := map[string]Endpoint{}
 	for _, e := range r.Endpoints {
 		k := e.key()
-		if _, ok := seen[k]; !ok {
+		f, ok := first[k]
+		if !ok {
 			order = append(order, k)
-			srcs[k] = e.Source
+			f = e
+			f.Params = nil
+			if e.ParamLocations != nil {
+				f.ParamLocations = map[string]string{}
+			}
 		}
 		seen[k] = mergeUnique(seen[k], e.Params)
-		if bodies[k] == "" && e.Body != "" {
-			bodies[k] = e.Body
+		if f.Body == "" && e.Body != "" {
+			f.Body = e.Body
 		}
+		for p, loc := range e.ParamLocations {
+			if f.ParamLocations == nil {
+				f.ParamLocations = map[string]string{}
+			}
+			if _, have := f.ParamLocations[p]; !have {
+				f.ParamLocations[p] = loc
+			}
+		}
+		first[k] = f
 	}
 	out := make([]Endpoint, 0, len(order))
 	for _, k := range order {
 		method, path := splitKey(k)
-		out = append(out, Endpoint{Method: method, Path: path, Params: seen[k], Body: bodies[k], Source: srcs[k]})
+		e := first[k]
+		e.Method, e.Path, e.Params = method, path, seen[k]
+		out = append(out, e)
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Path != out[j].Path {
@@ -1036,6 +822,8 @@ func (r *Result) finalize() {
 	r.Formats = dedupStrings(r.Formats)
 	r.Notes = dedupStrings(r.Notes)
 	r.TextContext = dedupStrings(r.TextContext)
+	r.Environments = dedupStrings(r.Environments)
+	r.MissingVars = dedupStrings(r.MissingVars)
 }
 
 // Briefing renders a compact, agent-facing attack-surface briefing. Returns ""
@@ -1074,7 +862,24 @@ func (r *Result) Briefing() string {
 		for _, e := range r.Endpoints {
 			line := "- " + e.Method + " " + e.Path
 			if len(e.Params) > 0 {
-				line += "  params: " + strings.Join(e.Params, ",")
+				ps := make([]string, 0, len(e.Params))
+				for _, p := range e.Params {
+					if loc := e.ParamLocations[p]; loc != "" {
+						p += "(" + loc + ")"
+					}
+					ps = append(ps, p)
+				}
+				line += "  params: " + strings.Join(ps, ",")
+			}
+			if e.BodyMode != "" {
+				line += "  body: " + e.BodyMode
+			}
+			if e.Name != "" {
+				ref := e.Name
+				if e.Folder != "" {
+					ref = e.Folder + "/" + e.Name
+				}
+				line += "  [" + e.Source + ": " + ref + "]"
 			}
 			b.WriteString(line + "\n")
 		}

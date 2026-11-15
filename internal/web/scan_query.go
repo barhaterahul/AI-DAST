@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/barhaterahul/ai-dast-ing/v4/internal/config"
 	pdfreport "github.com/barhaterahul/ai-dast-ing/v4/internal/reporting"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/reporting"
 )
@@ -192,27 +191,6 @@ func toReportingScan(scan *ScanRecord) *pdfreport.Scan {
 
 // generateReportAt generates a PDF report, saving it to a specific directory.
 func (s *Server) generateReportAt(scan *ScanRecord, scanDir string) (string, error) {
-	// The redesigned reporting package currently renders with Latin core
-	// fonts. Preserve the localized/CJK renderer added on main for non-English
-	// reports until that support is moved into internal/reporting.
-	language := config.DefaultLanguage
-	if s.cfg != nil {
-		language = config.NormalizeLanguage(s.cfg.Language)
-	}
-	if language != config.DefaultLanguage {
-		// The localized renderer still uses currentScanDir for its output path.
-		s.mu.Lock()
-		prevDir := s.currentScanDir
-		s.currentScanDir = scanDir
-		s.mu.Unlock()
-		defer func() {
-			s.mu.Lock()
-			s.currentScanDir = prevDir
-			s.mu.Unlock()
-		}()
-		return s.generateReport(scan)
-	}
-
 	logoData, logoType := s.loadReportLogo(scan.LogoPath)
 
 	return pdfreport.Generate(toReportingScan(scan), pdfreport.Options{

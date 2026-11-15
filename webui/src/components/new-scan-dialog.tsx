@@ -65,7 +65,7 @@ export default function NewScanDialog({
       setName("");
       setReconMode("active");
       setScanIntensity("active");
-      if (res?.instance_id) navigate(`/instances`);
+      if (res?.instance_id) navigate(`/scans/${encodeURIComponent(res.instance_id)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start scan");
     }
