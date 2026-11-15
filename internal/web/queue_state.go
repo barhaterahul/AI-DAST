@@ -443,6 +443,7 @@ func (s *Server) scanRequestForPausedInstance(instanceID string, inst *ScanInsta
 		if reason := invalidQueueStateReason(entry.state); reason == "" {
 			req := scanRequestFromQueueState(entry.state, entry.path)
 			fillResumeRequestDefaults(&req, defaultReq)
+			resumeOverrides(&req, inst)
 			req.IsResume = true
 			return req, true, ""
 		}
@@ -464,6 +465,7 @@ func (s *Server) scanRequestForPausedInstance(instanceID string, inst *ScanInsta
 		defaultReq.ResumeActiveTarget = defaultReq.Targets[0]
 	}
 	defaultReq.Targets = s.pausedQueueTargets(instanceID, defaultReq.Targets, defaultReq.ResumeActiveTarget)
+	resumeOverrides(&defaultReq, inst)
 	return defaultReq, true, ""
 }
 

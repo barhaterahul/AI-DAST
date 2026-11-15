@@ -56,6 +56,7 @@ func (s *Server) freshScanRecordForSession(sess *scanSession, startedAt string) 
 		Vulns:          []VulnSummary{},
 		CompanyName:    sess.companyName,
 		LogoPath:       sess.logoPath,
+		TokenAuth:      sess.tokenAuth,
 		Phases:         append([]int(nil), sess.phases...),
 		CurrentPhase:   firstSelectedPhase(sess.phases),
 		WorkStarted:    true,
@@ -69,6 +70,9 @@ func (s *Server) refreshResumedScanRecord(rec *ScanRecord, sess *scanSession, fa
 	rec.InstanceID = sess.instanceID
 	if sess.name != "" || rec.Name == "" {
 		rec.Name = sess.name
+	}
+	if sess.tokenAuth.enabled() {
+		rec.TokenAuth = sess.tokenAuth
 	}
 	rec.Target = sess.target
 	rec.ParentTarget = sess.parentTarget
@@ -306,6 +310,10 @@ func (s *Server) seedResumeInstanceFromRecord(inst *ScanInstance, req ScanReques
 	}
 	if rec.LogoPath != "" {
 		inst.LogoPath = rec.LogoPath
+	}
+	if rec.TokenAuth.enabled() && !inst.TokenAuth.enabled() {
+		cp := *rec.TokenAuth
+		inst.TokenAuth = &cp
 	}
 	if rec.Iterations > inst.Iterations {
 		inst.Iterations = rec.Iterations

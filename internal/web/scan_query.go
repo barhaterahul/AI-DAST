@@ -601,6 +601,7 @@ func (s *Server) scanRecordFromInstance(inst *ScanInstance) *ScanRecord {
 		ScanMode:            inst.ScanMode,
 		Instruction:         inst.Instruction,
 		SeverityFilter:      severityFilter,
+		TokenAuth:           inst.TokenAuth,
 		ReconMode:           inst.ReconMode,
 		ScanIntensity:       inst.ScanIntensity,
 		Events:              events,
