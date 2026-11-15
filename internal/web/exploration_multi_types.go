@@ -1,5 +1,12 @@
 package web
 
+import (
+	"net/url"
+	"strings"
+
+	"github.com/barhaterahul/ai-dast-ing/v4/internal/tools/reporting"
+)
+
 // Shared API contract for the multi-target Exploration views. Handlers live in
 // exploration_overview.go (GET /api/exploration/overview) and
 // exploration_combined.go (GET /api/exploration/combined).
@@ -130,4 +137,82 @@ type CombinedGroup struct {
 type CombinedNode struct {
 	ExplorationNode
 	Group string `json:"group"`
+}
+
+// explorationTargetKey normalizes a scan target to the host[:port] used to
+// group scans of the same target ("https://API.shop.test/v1/" ->
+// "api.shop.test"). Default ports are dropped.
+func explorationTargetKey(target string) string {
+	t := strings.TrimSpace(target)
+	if t == "" {
+		return ""
+	}
+	if !strings.Contains(t, "://") {
+		t = "http://" + t
+	}
+	u, err := url.Parse(t)
+	if err != nil || u.Host == "" {
+		return normalizeScanTarget(target)
+	}
+	host := strings.ToLower(u.Hostname())
+	port := u.Port()
+	if port == "" || (u.Scheme == "http" && port == "80") || (u.Scheme == "https" && port == "443") {
+		return host
+	}
+	return host + ":" + port
+}
+
+var severityRank = map[string]int{"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
+
+// normSeverity maps a free-form severity to critical|high|medium|low|info.
+func normSeverity(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	switch s {
+	case "critical", "high", "medium", "low", "info":
+		return s
+	case "informational", "none":
+		return "info"
+	case "moderate":
+		return "medium"
+	}
+	return "info"
+}
+
+// higherSeverity returns the more severe of a and b ("" counts as none).
+func higherSeverity(a, b string) string {
+	if severityRank[b] > severityRank[a] {
+		return b
+	}
+	return a
+}
+
+// severityCountsFromVulns tallies findings by severity and returns the top one.
+func severityCountsFromVulns(vulns []VulnSummary) (SeverityCounts, string) {
+	var c SeverityCounts
+	top := ""
+	for _, v := range vulns {
+		sv := normSeverity(v.Severity)
+		switch sv {
+		case "critical":
+			c.Critical++
+		case "high":
+			c.High++
+		case "medium":
+			c.Medium++
+		case "low":
+			c.Low++
+		default:
+			c.Info++
+		}
+		top = higherSeverity(top, sv)
+	}
+	return c, top
+}
+
+// vulnClassOf classifies a finding ("sqli", "xss", …); "other" when unknown.
+func vulnClassOf(v VulnSummary) string {
+	if c := reporting.VulnClass(v.Title, v.Description, v.CWE); c != "" {
+		return c
+	}
+	return "other"
 }
