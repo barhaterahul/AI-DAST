@@ -1240,6 +1240,8 @@ func (s *Server) Start() error {
 	mux.HandleFunc("/api/upload-logo", s.handleUploadLogo)
 	mux.HandleFunc("/api/upload-context", s.handleUploadContext)
 	mux.HandleFunc("/api/collection/resolve", s.handleCollectionResolve)
+	mux.HandleFunc("/api/exploration/overview", s.handleExplorationOverview)
+	mux.HandleFunc("/api/exploration/combined", s.handleExplorationCombined)
 	mux.HandleFunc("/api/token-status/", s.handleTokenStatus)
 	mux.HandleFunc("/api/token-providers", s.handleTokenProviders)
 	mux.HandleFunc("/api/token-providers/", s.handleTokenProviders)
