@@ -4436,3 +4436,10 @@ func dedupEndpointKey(endpoint string) string {
 func normalizeFindingText(value string) string {
 	return strings.Join(strings.Fields(strings.ToLower(strings.TrimSpace(value))), " ")
 }
+
+// VulnClass returns the normalized vulnerability class ("sqli", "xss",
+// "idor", …; "" when unknown) for a finding, using the same classifier as
+// duplicate detection.
+func VulnClass(title, description, cwe string) string {
+	return extractVulnTypeWithCWE(title, description, cwe)
+}

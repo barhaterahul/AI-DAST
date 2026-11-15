@@ -567,3 +567,25 @@ export function useUpdateScanConfig(id: string) {
     },
   });
 }
+
+// ---- Multi-target exploration ---------------------------------------------
+
+export function useExplorationOverview(q: import("@/types/api").OverviewQuery) {
+  return useQuery({
+    queryKey: ["exploration-overview", q],
+    queryFn: () => api.explorationOverview(q),
+    retry: false,
+    placeholderData: (prev) => prev,
+    refetchInterval: 30000,
+  });
+}
+
+export function useExplorationCombined(scanIds: string[], scope: ExplorationScope = "findings") {
+  return useQuery({
+    queryKey: ["exploration-combined", scanIds, scope],
+    queryFn: () => api.explorationCombined(scanIds, scope),
+    enabled: scanIds.length > 0,
+    retry: false,
+    placeholderData: (prev) => prev,
+  });
+}

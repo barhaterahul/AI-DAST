@@ -10,6 +10,9 @@ import type {
   TokenTestResult,
   TokenStatus,
   ScanConfig,
+  ExplorationOverview,
+  ExplorationCombined,
+  OverviewQuery,
   ScanEdit,
   InstancesResponse,
   LLMSettings,
@@ -313,6 +316,17 @@ export const api = {
   resolveCollection: (req: { path: string; env?: string; vars?: Record<string, string>; exclude?: string[] }) =>
     http<ContextPreview>("/api/collection/resolve", { method: "POST", json: req, timeoutMs: 120_000 }),
 
+  explorationOverview: (q: OverviewQuery = {}) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(q)) if (v !== undefined && v !== "") p.set(k, String(v));
+    const qs = p.toString();
+    return http<ExplorationOverview>(`/api/exploration/overview${qs ? `?${qs}` : ""}`, { timeoutMs: 60_000 });
+  },
+  explorationCombined: (scanIds: string[], scope: ExplorationScope = "findings") =>
+    http<ExplorationCombined>(
+      `/api/exploration/combined?scans=${scanIds.map(encodeURIComponent).join(",")}&scope=${scope}`,
+      { timeoutMs: 60_000 },
+    ),
   scanConfig: (id: string) => http<ScanConfig>(`/api/instances/${encodeURIComponent(id)}/config`),
   updateScanConfig: (id: string, edit: ScanEdit) =>
     http<ScanConfig>(`/api/instances/${encodeURIComponent(id)}/config`, { method: "PATCH", json: edit }),

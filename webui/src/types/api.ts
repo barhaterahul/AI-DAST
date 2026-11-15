@@ -841,3 +841,96 @@ export interface ScanEdit {
   token_auth?: TokenAuthSelection;
   scan_context?: string;
 }
+
+// ---- Multi-target exploration (contract: internal/web/exploration_multi_types.go)
+
+export interface SeverityCounts {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+}
+
+export interface OverviewScanRef {
+  id: string;
+  instance_id?: string;
+  status: string;
+  started_at: string;
+  findings: number;
+  top_severity: string;
+}
+
+export interface OverviewTarget {
+  key: string;
+  label: string;
+  latest_scan_id: string;
+  latest_status: string;
+  last_scanned: string;
+  scans: OverviewScanRef[];
+  endpoints: number;
+  parameters: number;
+  attempts: number;
+  findings: number;
+  verified: number;
+  severity: SeverityCounts;
+  top_severity: string;
+  vuln_classes: Record<string, number>;
+  backend: { name: string; category: string }[];
+  token_provider?: string;
+}
+
+export type OverviewLinkKind = "shared_backend" | "shared_vuln_class" | "shared_auth" | "shared_infra";
+
+export interface OverviewLink {
+  id: string;
+  kind: OverviewLinkKind;
+  source: string;
+  target: string;
+  label: string;
+  weight: number;
+  evidence?: string[];
+}
+
+export interface ExplorationOverview {
+  generated_at: string;
+  targets: OverviewTarget[];
+  links: OverviewLink[];
+  matrix: {
+    classes: string[];
+    cells: { target: string; class: string; count: number; top_severity: string }[];
+  };
+  totals: { targets: number; scans: number; findings: number; severity: SeverityCounts };
+  truncated: boolean;
+  filters: { q?: string; min_severity?: string; status?: string; since?: string; limit: number };
+}
+
+export interface OverviewQuery {
+  q?: string;
+  min_severity?: string;
+  status?: string;
+  since?: string;
+  limit?: number;
+}
+
+export interface CombinedGroup {
+  id: string;
+  scan_id: string;
+  target: string;
+  key: string;
+  status: string;
+  stats: ExplorationGraphStats;
+  severity: SeverityCounts;
+  top_severity: string;
+  truncated: boolean;
+  error?: string;
+}
+
+export interface ExplorationCombined {
+  scope: ExplorationScope;
+  groups: CombinedGroup[];
+  nodes: (ExplorationGraphNode & { group: string })[];
+  edges: ExplorationGraphEdge[];
+  links: OverviewLink[];
+  truncated: boolean;
+}
