@@ -1,7 +1,8 @@
 package attacksurface
 
 import (
-	"crypto/sha1"
+	crand "crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -128,8 +129,8 @@ func dynamicVar(name string) (string, bool) {
 			return "", false
 		}
 		b := make([]byte, 16)
-		for i := range b {
-			b[i] = byte(rand.IntN(256))
+		if _, err := crand.Read(b); err != nil {
+			return "", false
 		}
 		b[6] = (b[6] & 0x0f) | 0x40
 		b[8] = (b[8] & 0x3f) | 0x80
@@ -359,7 +360,7 @@ func isHopHeader(name string) bool {
 }
 
 func requestID(parts ...string) string {
-	h := sha1.Sum([]byte(strings.Join(parts, "\x00")))
+	h := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
 	return hex.EncodeToString(h[:6])
 }
 

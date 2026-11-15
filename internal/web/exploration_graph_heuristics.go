@@ -149,7 +149,6 @@ func (b *explorationBuilder) inferHypothesisEG(hyps []egHypothesis, v *VulnSumma
 var (
 	egProseParamRe = regexp.MustCompile(`(?:^|[^A-Za-z0-9_\[\].-])([A-Za-z_][A-Za-z0-9_.\-\[\]]{0,63})=`)
 	egInjectionRe  = regexp.MustCompile(`(?i)['"<>` + "`" + `;|]|\.\./|\.\.\\|\$\{|\{\{|--|%27|%22|%3c|%3e|%60|\bor\s+\d|\bunion\b|\bselect\b|sleep\(|javascript:|<!`)
-	egProseStopRe  = regexp.MustCompile(`\s(?:to|and|then|which|returns?|observe[ds]?|gives?|yields?|on|at|with|->|=>|→)\s`)
 	// HTML attribute names that appear inside injected markup, not request parameters.
 	egAttrNames = map[string]bool{"src": true, "href": true, "style": true, "class": true, "xmlns": true, "version": true,
 		"encoding": true, "action": true, "method": true, "type": true, "charset": true}

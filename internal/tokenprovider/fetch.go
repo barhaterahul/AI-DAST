@@ -57,7 +57,12 @@ const (
 // NewClient returns a Client with a dedicated http.Client honoring the
 // environment proxy. TLS verification is skipped only when the provider asks.
 func NewClient(p *Provider) *Client {
-	tr := http.DefaultTransport.(*http.Transport).Clone()
+	var tr *http.Transport
+	if dt, ok := http.DefaultTransport.(*http.Transport); ok {
+		tr = dt.Clone()
+	} else {
+		tr = &http.Transport{}
+	}
 	tr.Proxy = http.ProxyFromEnvironment
 	if p != nil && p.TLSSkipVerify {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true} //nolint:gosec // operator opt-in for lab token APIs
@@ -123,7 +128,7 @@ func (c *Client) Refresh(ctx context.Context, p *Provider, profile string, prev 
 		}
 		full, ferr := c.Fetch(ctx, p, profile)
 		if ferr != nil {
-			return nil, fmt.Errorf("refresh failed (%v); full token request also failed: %w", rerr, ferr)
+			return nil, fmt.Errorf("refresh failed (%w); full token request also failed: %w", rerr, ferr)
 		}
 		return full, nil
 	}

@@ -177,12 +177,6 @@ type postmanCtx struct {
 	envs    []string // names of all environments seen
 }
 
-// parsePostman parses a collection with sibling environment variables (kept
-// for callers/tests of the original API).
-func parsePostman(data []byte, extraVars map[string]string) *Result {
-	return parsePostmanWith(data, &postmanCtx{env: extraVars})
-}
-
 func parsePostmanWith(data []byte, pc *postmanCtx) *Result {
 	var coll postmanColl
 	if err := json.Unmarshal(data, &coll); err != nil {
@@ -406,12 +400,6 @@ func postmanAuthHeaderR(auth *postmanAuth, rv *resolver) (string, string) {
 		return name, val
 	}
 	return "", ""
-}
-
-// resolvePostmanVars replaces {{variable}} placeholders using vars. Unknown
-// placeholders are left intact.
-func resolvePostmanVars(s string, vars map[string]string) string {
-	return newResolver(vars).resolve(s)
 }
 
 // postmanEnv is a Postman environment or globals export.
