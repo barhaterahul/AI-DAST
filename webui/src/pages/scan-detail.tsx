@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { ScanStatusPill } from "@/components/scan-status-pill";
+import { TokenStatusBadge } from "@/components/token-status-badge";
 import { SeverityBadge } from "@/components/severity-badge";
 import { Markdown } from "@/components/markdown";
 import { VerificationBadge } from "@/components/verification-badge";
@@ -40,6 +41,8 @@ import {
 } from "@/components/phase-progress";
 import { CopyButton } from "@/components/copy-button";
 import { TokenUsageTab } from "@/components/token-usage";
+import { ExplorationGraphView } from "@/components/exploration-graph";
+import { Network } from "lucide-react";
 import { ErrorState, EmptyState } from "@/components/states";
 import {
   useScan,
@@ -256,6 +259,10 @@ export default function ScanDetailPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <ScanStatusPill status={scan.status} />
+          <TokenStatusBadge
+            instanceId={scan.instance_id || scan.id}
+            running={["running", "pending"].includes((scan.status || "").toLowerCase())}
+          />
           <Button variant="outline" size="sm" asChild>
             <a href={api.reportUrl(scan.id)} target="_blank" rel="noreferrer">
               <Download className="mr-1 h-4 w-4" /> Report
@@ -441,6 +448,12 @@ export default function ScanDetailPage() {
             <Terminal className="mr-1.5 h-3.5 w-3.5" />
             {t("scanDetail.tab.events")}
           </TabsTrigger>
+          <TabsTrigger value="graph">
+            <Network className="mr-1.5 h-3.5 w-3.5" />
+            {t("scanDetail.tab.graph") === "scanDetail.tab.graph"
+              ? "Exploration Graph"
+              : t("scanDetail.tab.graph")}
+          </TabsTrigger>
           <TabsTrigger value="tokens">
             <Activity className="mr-1.5 h-3.5 w-3.5" />
             {t("scanDetail.tab.tokens")}
@@ -472,6 +485,9 @@ export default function ScanDetailPage() {
             loadingOlder={loadingOlder}
             onLoadEarlier={loadEarlierEvents}
           />
+        </TabsContent>
+        <TabsContent value="graph">
+          <ExplorationGraphView scanId={scan.id} />
         </TabsContent>
         <TabsContent value="tokens">
           <TokenUsageTab scanId={scan.id} running={status === "running" || status === "paused"} />

@@ -4,18 +4,18 @@ import {
   AlertOctagon,
   Clock,
   FileText,
+  KeyRound,
   LayoutGrid,
   Mail,
+  Network,
   Plug,
   Plus,
   Radio,
-  Server,
   Settings,
   ShieldAlert,
   Target,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useVersion } from "@/api/queries";
 import { useI18n } from "@/i18n";
 
 const NAV: { to: string; labelKey: string; icon: typeof LayoutGrid; end?: boolean }[] = [
@@ -23,29 +23,24 @@ const NAV: { to: string; labelKey: string; icon: typeof LayoutGrid; end?: boolea
   { to: "/scans/new", labelKey: "nav.newScan", icon: Plus },
   { to: "/scans", labelKey: "nav.scans", icon: Target },
   { to: "/schedules", labelKey: "nav.schedules", icon: Clock },
-  { to: "/instances", labelKey: "nav.instances", icon: Server },
+  { to: "/exploration", labelKey: "nav.exploration", icon: Network },
   { to: "/findings", labelKey: "nav.findings", icon: ShieldAlert },
   { to: "/live", labelKey: "nav.live", icon: Radio },
   { to: "/reports", labelKey: "nav.reports", icon: FileText },
   { to: "/integrations", labelKey: "nav.integrations", icon: Plug },
+  { to: "/token-providers", labelKey: "nav.tokenProviders", icon: KeyRound },
   { to: "/settings", labelKey: "nav.settings", icon: Settings },
 ];
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const { t } = useI18n();
-  const { data: version } = useVersion();
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-border bg-card">
       <div className="flex h-14 items-center gap-2 border-b border-border px-4">
         <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
           <img src="/logo.png" alt="" className="h-full w-full object-cover" aria-hidden />
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-semibold tracking-tight">AI-DAST-ING</span>
-          <span className="text-[10px] text-muted-foreground mono">
-            {version?.version ? `v${version.version}` : t("sidebar.securityScanner")}
-          </span>
-        </div>
+        <span className="text-sm font-semibold tracking-tight">AI-DAST-ING</span>
       </div>
       <nav className="flex-1 overflow-y-auto py-3" aria-label="Primary">
         <ul className="space-y-0.5 px-2">

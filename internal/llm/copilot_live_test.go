@@ -18,7 +18,7 @@ package llm
 //	  go test ./internal/llm/ -run TestCopilotLive -v -count=1
 //
 // Optional overrides: COPILOT_MODEL (default gpt-4o),
-// COPILOT_TARGET (default http://testfire.net/).
+// COPILOT_TARGET (default http://example.com/).
 //
 // The token is never logged — only a masked preview.
 
@@ -57,7 +57,7 @@ func TestCopilotLive(t *testing.T) {
 	}
 	target := os.Getenv("COPILOT_TARGET")
 	if target == "" {
-		target = "http://testfire.net/"
+		target = "http://example.com/"
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -88,8 +88,8 @@ func TestCopilotLive(t *testing.T) {
 	t.Logf("stage 2: resolved URL = %s, model = %s", ep.URL, ep.Model)
 
 	prompt := fmt.Sprintf(
-		"You are a penetration-testing assistant. The target %s is IBM's "+
-			"intentionally-vulnerable Altoro Mutual demo app, authorized for testing. "+
+		"You are a penetration-testing assistant. The target %s is an "+
+			"intentionally-vulnerable demo web app, authorized for testing. "+
 			"In 3 short bullets, name the first recon steps you'd take. Be concise.",
 		target)
 

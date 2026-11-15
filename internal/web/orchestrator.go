@@ -174,6 +174,7 @@ func (s *Server) registerMultiScan(req ScanRequest, instanceIDs ...string) (*mul
 		TargetAuthSecondary: req.TargetAuthSecondary,
 		SourceRepo:          req.SourceRepo,
 		ScanContext:         req.ScanContext,
+		TokenAuth:           req.TokenAuth,
 		SubScans:            make([]SubScanSummary, 0),
 		snapshotFinalizing:  true,
 		Iterations:          req.ResumeIterations,
@@ -861,6 +862,7 @@ func (s *Server) runSingleTarget(ctx context.Context, scanCfg *config.Config, re
 		targetAuthB:        req.TargetAuthSecondary,
 		sourceRepo:         req.SourceRepo,
 		scanContext:        req.ScanContext,
+		tokenAuth:          req.TokenAuth,
 		llmClient:          s.scanLLMClientForRequest(req, scanCfg),
 	}
 	s.executeScanSession(sess)
@@ -933,6 +935,7 @@ func (s *Server) runDASTTarget(ctx context.Context, scanCfg *config.Config, req 
 		targetAuthB:        req.TargetAuthSecondary,
 		sourceRepo:         req.SourceRepo,
 		scanContext:        req.ScanContext,
+		tokenAuth:          req.TokenAuth,
 		llmClient:          s.scanLLMClientForRequest(req, scanCfg),
 	}
 	s.executeScanSession(sess)
@@ -1086,6 +1089,7 @@ func (s *Server) runWildcardTarget(ctx context.Context, scanCfg *config.Config, 
 			targetAuthB:        req.TargetAuthSecondary,
 			sourceRepo:         req.SourceRepo,
 			scanContext:        req.ScanContext,
+			tokenAuth:          req.TokenAuth,
 			llmClient:          s.scanLLMClientForRequest(req, scanCfg),
 		}
 		s.executeScanSession(discoverySess)
@@ -1432,6 +1436,7 @@ func (s *Server) runWildcardTarget(ctx context.Context, scanCfg *config.Config, 
 				targetAuthB:          req.TargetAuthSecondary,
 				sourceRepo:           req.SourceRepo,
 				scanContext:          req.ScanContext,
+				tokenAuth:            req.TokenAuth,
 				llmClient:            s.scanLLMClientForRequest(req, scanCfg),
 			}
 			s.executeScanSession(subSess)

@@ -281,6 +281,109 @@ export interface ScanRequest {
   // /api/scan and is honored only for authenticated operators
   // (Requirement 11.1, 11.5).
   provider_profile?: string;
+  // Token provider selection: credentials are issued by a configured token
+  // API and refreshed automatically. Supersedes target_auth / target_auth_b.
+  token_auth?: TokenAuthSelection;
+}
+
+export interface TokenAuthSelection {
+  provider: string;
+  profile?: string;
+  profile_b?: string;
+}
+
+// ---- Token providers ------------------------------------------------------
+
+export interface TokenRequestSpec {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body_type?: "json" | "form" | "raw";
+  body?: unknown;
+}
+
+export interface TokenExtractSpec {
+  token: string;
+  refresh_token?: string;
+  expires_in?: string;
+}
+
+export interface TokenProvider {
+  id: string;
+  name: string;
+  description?: string;
+  request: TokenRequestSpec;
+  extract: TokenExtractSpec;
+  apply?: { header?: string; format?: string };
+  refresh?: {
+    request?: TokenRequestSpec | null;
+    extract?: TokenExtractSpec | null;
+    before_expiry_seconds?: number;
+    max_ttl_seconds?: number;
+    on_status?: number[];
+  };
+  secrets?: Record<string, string>;
+  profiles?: Record<string, Record<string, string>>;
+  tls_skip_verify?: boolean;
+  /** Server-derived: {{params}} the request templates reference. */
+  placeholders?: string[];
+}
+
+export interface TokenTestStep {
+  step: "fetch" | "refresh";
+  ok: boolean;
+  error?: string;
+  missing?: string[];
+  token_preview?: string;
+  has_refresh_token?: boolean;
+  refresh_token_rotated?: boolean;
+  header?: string;
+  expiry?: string;
+  expires_in_seconds?: number;
+  jwt?: { header: Record<string, unknown>; claims: Record<string, unknown>; expiry?: string; issued_at?: string };
+  elapsed_ms: number;
+}
+
+export interface TokenTestResult {
+  ok: boolean;
+  profile: string;
+  steps: TokenTestStep[];
+}
+
+// ---- Collection / context preview ----------------------------------------
+
+export interface ContextPreviewRequest {
+  id: string;
+  name?: string;
+  folder?: string;
+  method: string;
+  url: string;
+  source?: string;
+  body_mode?: string;
+  params?: { name: string; location?: string }[];
+  token_candidate?: boolean;
+}
+
+export interface ContextPreview {
+  path: string;
+  filename?: string;
+  files?: number;
+  env?: string;
+  endpoints: number;
+  formats: string[];
+  has_auth: boolean;
+  auth_headers?: string[];
+  base_urls?: number;
+  base_url_list?: string[];
+  notes?: string[];
+  environments?: string[];
+  /** Environment actually used (first by name unless one was chosen). */
+  environment?: string;
+  missing_vars?: string[];
+  scripts_skipped?: number;
+  excluded?: number;
+  requests?: ContextPreviewRequest[];
+  truncated?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -591,4 +694,99 @@ export interface SettingsImportResult {
   llm_key_warnings?: string[];
   restart_required?: boolean;
   general_warnings?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Exploration Graph — GET /api/scans/{id}/graph?scope=findings|all
+// Every string in these types originates from the attacked target or the LLM
+// and must be treated as untrusted (render as React text only).
+// ---------------------------------------------------------------------------
+
+export type ExplorationScope = "findings" | "all";
+
+export type ExplorationNodeType =
+  | "target"
+  | "agent"
+  | "discovery"
+  | "endpoint"
+  | "parameter"
+  | "attempt"
+  | "evidence"
+  | "finding"
+  | "backend";
+
+export type ExplorationEdgeKind =
+  | "assigned"
+  | "discovered"
+  | "exposes"
+  | "tested"
+  | "injected"
+  | "proves"
+  | "reveals";
+
+export type ExplorationNodeStatus =
+  | "proven"
+  | "rejected"
+  | "blocked"
+  | "exhausted"
+  | "active";
+
+export interface ExplorationGraphNode {
+  id: string;
+  type: ExplorationNodeType;
+  label: string;
+  subtitle?: string;
+  status?: ExplorationNodeStatus | string;
+  severity?: "critical" | "high" | "medium" | "low" | "info" | string;
+  verified?: boolean;
+  finding_ids?: string[];
+  data: Record<string, unknown>;
+}
+
+export interface ExplorationGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  kind: ExplorationEdgeKind | string;
+}
+
+export interface ExplorationGraphStats {
+  endpoints: number;
+  parameters: number;
+  attempts: number;
+  proven: number;
+  findings: number;
+  verified: number;
+  agents: number;
+  backend: number;
+}
+
+export interface ExplorationGraph {
+  scan_id: string;
+  target: string;
+  status: string;
+  scope: ExplorationScope;
+  truncated: boolean;
+  stats: ExplorationGraphStats;
+  nodes: ExplorationGraphNode[] | null;
+  edges: ExplorationGraphEdge[] | null;
+}
+
+export interface TokenRoleStatus {
+  role: string;
+  profile: string;
+  valid: boolean;
+  expiry?: string;
+  obtained_at?: string;
+  refreshes: number;
+  failures: number;
+  last_error?: string;
+  token_preview?: string;
+}
+
+export interface TokenStatus {
+  configured: boolean;
+  selection?: TokenAuthSelection | null;
+  active: boolean;
+  roles?: TokenRoleStatus[] | null;
 }

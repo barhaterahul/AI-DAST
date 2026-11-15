@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -186,7 +187,9 @@ func (s *Server) handleUploadContext(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "file required", http.StatusBadRequest)
 		return
 	}
-	const maxFiles = 20
+	// A Bruno collection folder is uploaded file-by-file (one .bru per
+	// request), so allow more files than a typical spec upload.
+	const maxFiles = 500
 	if len(files) > maxFiles {
 		http.Error(w, fmt.Sprintf("too many files (max %d)", maxFiles), http.StatusBadRequest)
 		return
@@ -194,11 +197,11 @@ func (s *Server) handleUploadContext(w http.ResponseWriter, r *http.Request) {
 	// .apks/.xapk are split-APK bundles and .aab is an app bundle — all ZIP
 	// containers holding one or more inner .apk files, which the parser
 	// descends into.
-	allowedExts := map[string]bool{".json": true, ".yaml": true, ".yml": true, ".har": true, ".xml": true, ".apk": true, ".apks": true, ".xapk": true, ".aab": true, ".txt": true}
+	allowedExts := map[string]bool{".json": true, ".yaml": true, ".yml": true, ".har": true, ".xml": true, ".apk": true, ".apks": true, ".xapk": true, ".aab": true, ".txt": true, ".bru": true, ".zip": true}
 	for _, fh := range files {
 		ext := strings.ToLower(filepath.Ext(filepath.Base(fh.Filename)))
 		if !allowedExts[ext] {
-			http.Error(w, "unsupported context format: "+ext+" (allowed: json, yaml, yml, har, xml, apk, apks, xapk, aab, txt — OpenAPI/Swagger, HAR, Postman, Burp, Android app, or plain-text notes)", http.StatusBadRequest)
+			http.Error(w, "unsupported context format: "+ext+" (allowed: json, yaml, yml, har, xml, bru, zip, apk, apks, xapk, aab, txt — OpenAPI/Swagger, HAR, Postman, Bruno, Burp, Android app, or plain-text notes)", http.StatusBadRequest)
 			return
 		}
 	}
@@ -231,8 +234,20 @@ func (s *Server) handleUploadContext(w http.ResponseWriter, r *http.Request) {
 			safeName = "context"
 		}
 		fileName := safeName + ext
+		// Bruno collections depend on their folder layout (environments/,
+		// folder.bru per folder), so .bru files and bruno.json keep a
+		// sanitized relative path; everything else is flattened as before.
+		if sub := brunoRelDir(fh.Filename); sub != "" && (ext == ".bru" || strings.EqualFold(originalName, "bruno.json")) {
+			fileName = filepath.Join(sub, fileName)
+			if err := os.MkdirAll(filepath.Join(uploadDir, sub), 0o700); err != nil {
+				_ = os.RemoveAll(uploadDir)
+				http.Error(w, "server error", http.StatusInternalServerError)
+				return
+			}
+		}
+		base, extOnly := strings.TrimSuffix(fileName, ext), ext
 		for i := 1; usedNames[strings.ToLower(fileName)]; i++ {
-			fileName = fmt.Sprintf("%s_%d%s", safeName, i, ext)
+			fileName = fmt.Sprintf("%s_%d%s", base, i, extOnly)
 		}
 		usedNames[strings.ToLower(fileName)] = true
 
@@ -274,18 +289,35 @@ func (s *Server) handleUploadContext(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("Scan context uploaded: %d file(s) [%s] → %s (%d endpoints)", len(savedNames), strings.Join(savedNames, ", "), uploadDir, len(res.Endpoints))
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"path":      uploadDir,
-		"filename":  strings.Join(savedNames, ", "),
-		"files":     len(savedNames),
-		"endpoints": len(res.Endpoints),
-		"formats":   res.Formats,
-		"has_auth":  len(res.AuthHeaders) > 0,
-		// Surfaced so a sparse-but-valid parse (e.g. an APK yielding only
-		// hosts, or one that builds paths at runtime) can be explained in the
-		// UI instead of failing the upload.
-		"base_urls": len(res.BaseURLs),
-		"notes":     res.Notes,
-	})
+	resp := contextPreview(res)
+	resp["path"] = uploadDir
+	resp["filename"] = strings.Join(savedNames, ", ")
+	resp["files"] = len(savedNames)
+	writeJSONStatus(w, http.StatusOK, resp)
+}
+
+// brunoRelDir returns the sanitized directory part of an uploaded file's
+// relative path (as sent by a browser folder upload), or "" when there is
+// none or it is unsafe. Each segment is reduced to [A-Za-z0-9._ -], ".."
+// and absolute paths are rejected, and depth is capped.
+func brunoRelDir(name string) string {
+	name = strings.ReplaceAll(name, "\\", "/")
+	dir := path.Dir(name)
+	if dir == "." || dir == "/" || dir == "" || strings.HasPrefix(name, "/") {
+		return ""
+	}
+	segs := strings.Split(dir, "/")
+	if len(segs) > 8 {
+		return ""
+	}
+	clean := regexp.MustCompile(`[^A-Za-z0-9._ -]+`)
+	out := make([]string, 0, len(segs))
+	for _, seg := range segs {
+		seg = strings.TrimSpace(clean.ReplaceAllString(seg, "_"))
+		if seg == "" || seg == "." || seg == ".." || strings.HasPrefix(seg, "..") {
+			return ""
+		}
+		out = append(out, seg)
+	}
+	return filepath.Join(out...)
 }

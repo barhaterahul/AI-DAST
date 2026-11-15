@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { Loader2, Menu, Plus, Search, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectionStatus } from "@/components/connection-status";
-import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useStatus, useInstances, useStopAll } from "@/api/queries";
 import { useCommandPalette } from "@/components/command-palette";
@@ -76,7 +75,6 @@ export function Topbar({
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
         <ThemeToggle />
-        <LanguageSwitcher />
         <ConnectionStatus />
         {running > 0 && (
           <Button

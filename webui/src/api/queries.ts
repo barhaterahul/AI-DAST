@@ -1,6 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "./client";
-import type { ListParams, ScanRequest, ScanSchedule } from "@/types/api";
+import type {
+  ExplorationScope,
+  ListParams,
+  ScanRequest,
+  ScanSchedule,
+} from "@/types/api";
 
 export const qk = {
   authStatus: ["auth", "status"] as const,
@@ -12,8 +17,6 @@ export const qk = {
   scansPage: (params: ListParams) => ["scans", "page", params] as const,
   scan: (id: string) => ["scan", id] as const,
   instances: ["instances"] as const,
-  // Paginated instances share the ["instances"] prefix for the same reason.
-  instancesPage: (params: ListParams) => ["instances", "page", params] as const,
   instance: (id: string) => ["instance", id] as const,
   instanceEvents: (id: string) => ["instance", id, "events"] as const,
   queue: ["queue"] as const,
@@ -101,6 +104,26 @@ export function useTokenUsage(id?: string, running?: boolean) {
   });
 }
 
+// Exploration Graph for one scan. Polls every 15s while the scan is still
+// running so new attempts/findings appear live; stops once it is finished.
+// Keeps the previous graph visible while switching scope on the same scan.
+export function useScanGraph(id?: string, scope: ExplorationScope = "findings") {
+  return useQuery({
+    queryKey: id ? ["scan", id, "graph", scope] : ["scan", "none", "graph", scope],
+    queryFn: () => api.scanGraph(id!, scope),
+    enabled: !!id,
+    retry: false,
+    placeholderData: (prev, prevQuery) =>
+      prevQuery && prevQuery.queryKey[1] === id ? prev : undefined,
+    refetchInterval: (query) => {
+      const status = (query.state.data?.status || "").toLowerCase();
+      return status === "running" || status === "pending" || status === "paused"
+        ? 15000
+        : false;
+    },
+  });
+}
+
 export function useScan(id?: string) {
   return useQuery({
     queryKey: id ? qk.scan(id) : ["scan", "none"],
@@ -122,16 +145,6 @@ export function useInstances() {
     queryKey: qk.instances,
     queryFn: api.instances,
     refetchInterval: 8000,
-  });
-}
-
-// Server-side paginated + filtered instances, used by the /instances page.
-export function useInstancesPage(params: ListParams) {
-  return useQuery({
-    queryKey: qk.instancesPage(params),
-    queryFn: () => api.instancesPage(params),
-    refetchInterval: 8000,
-    placeholderData: (prev) => prev,
   });
 }
 
@@ -217,14 +230,6 @@ export function useResumeInstance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.resumeInstance(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: qk.instances }),
-  });
-}
-
-export function useRestartInstance() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.restartInstance(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.instances }),
   });
 }
@@ -496,5 +501,43 @@ export function useDeleteAuthProfile() {
       qc.invalidateQueries({ queryKey: qk.authProfiles });
       qc.invalidateQueries({ queryKey: qk.llmSettings });
     },
+  });
+}
+
+// ---- Token providers ------------------------------------------------------
+
+export const tokenProvidersKey = ["token-providers"] as const;
+
+export function useTokenProviders() {
+  return useQuery({ queryKey: tokenProvidersKey, queryFn: () => api.tokenProviders() });
+}
+
+export function useSaveTokenProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.saveTokenProvider,
+    onSuccess: () => qc.invalidateQueries({ queryKey: tokenProvidersKey }),
+  });
+}
+
+export function useDeleteTokenProvider() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: api.deleteTokenProvider,
+    onSuccess: () => qc.invalidateQueries({ queryKey: tokenProvidersKey }),
+  });
+}
+
+export function useTestTokenProvider() {
+  return useMutation({ mutationFn: api.testTokenProvider });
+}
+
+export function useTokenStatus(instanceId: string, running: boolean) {
+  return useQuery({
+    queryKey: ["token-status", instanceId],
+    queryFn: () => api.tokenStatus(instanceId),
+    enabled: !!instanceId,
+    retry: false,
+    refetchInterval: running ? 15000 : false,
   });
 }

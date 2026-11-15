@@ -74,7 +74,7 @@ const (
 	maxHypothesisFieldLen    = 512
 
 	// EvidenceFindingRef marks evidence that references a confirmed, reported
-	// finding by its reporting ID (e.g. XALG-3). This kind is never evicted by
+	// finding by its reporting ID (e.g. AIDAST-3). This kind is never evicted by
 	// the per-hypothesis evidence cap.
 	EvidenceFindingRef = "finding_ref"
 )
@@ -93,7 +93,7 @@ type Evidence struct {
 	Request  string `json:"request,omitempty"`
 	Response string `json:"response,omitempty"`
 	// FindingID links this evidence to a reported reporting.Vulnerability
-	// (e.g. "XALG-3") when Kind == EvidenceFindingRef.
+	// (e.g. "AIDAST-3") when Kind == EvidenceFindingRef.
 	FindingID string `json:"finding_id,omitempty"`
 	// AgentID records which agent (coordinator or a specialist delegation ID)
 	// contributed the evidence.

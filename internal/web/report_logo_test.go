@@ -88,23 +88,3 @@ func TestLoadReportLogoRejectsInvalidFiles(t *testing.T) {
 		}
 	}
 }
-
-func TestLegacyReportEmbedsUploadedLogo(t *testing.T) {
-	s := &Server{dataDir: t.TempDir(), currentScanDir: t.TempDir()}
-	logosDir := filepath.Join(s.dataDir, "logos")
-	if err := os.Mkdir(logosDir, 0700); err != nil {
-		t.Fatal(err)
-	}
-	writeTestPNG(t, filepath.Join(logosDir, "brand.png"))
-	path, err := s.generateReport(&ScanRecord{
-		ID: "legacy-logo", Target: "example.com", Status: "finished",
-		CompanyName: "Example", LogoPath: "/uploads/logos/brand.png",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	pdf, err := os.ReadFile(path)
-	if err != nil || !bytes.Contains(pdf, []byte("/Subtype /Image")) {
-		t.Fatalf("legacy renderer did not embed the uploaded logo: %v", err)
-	}
-}

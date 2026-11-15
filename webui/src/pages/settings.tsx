@@ -51,7 +51,7 @@ import type {
   SettingsImportResult,
 } from "@/types/api";
 import OAuthModal from "./settings/oauth-modal";
-import { syncLanguageFromServer, useI18n } from "@/i18n";
+import { useI18n } from "@/i18n";
 
 const settingsTabs = [
   "llm",
@@ -189,14 +189,6 @@ export default function SettingsPage() {
       ),
     );
     setEnvChanges({});
-  }, [environment.data]);
-
-  // Adopt the operator's configured output language as the dashboard UI
-  // language when this browser has no explicit preference yet, so a fresh
-  // install honors AIDASTING_LANGUAGE. An explicit in-browser choice wins.
-  useEffect(() => {
-    const configured = envValue(environment.data, "AIDASTING_LANGUAGE");
-    if (configured) syncLanguageFromServer(configured);
   }, [environment.data]);
 
   // Sort providers alphabetically by displayName, with the

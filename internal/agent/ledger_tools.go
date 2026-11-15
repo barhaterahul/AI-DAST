@@ -14,7 +14,7 @@
 //   - record_hypothesis: register or refine an attack hypothesis (deduped by
 //     vuln class + endpoint + parameter + role).
 //   - add_hypothesis_evidence: attach an observation (baseline, probe, exploit
-//     attempt, artifact) or link a confirmed finding by its XALG-* id.
+//     attempt, artifact) or link a confirmed finding by its AIDAST-* id (XALG-* on pre-rename scans).
 //   - update_hypothesis: transition status (queued/testing/proven/rejected/
 //     blocked/exhausted), assign an owner, set the next-best action, or record
 //     an exploit attempt.
@@ -79,14 +79,14 @@ func (a *Agent) registerLedgerTools(reg *tools.Registry) {
 			"response, an exploit attempt, an artifact, or a link to a confirmed finding. This is how " +
 			"evidence accumulates toward a proof and how other agents see your progress. When you have " +
 			"filed a finding with report_vulnerability, link it here with kind=finding_ref and its " +
-			"XALG-* id so the hypothesis is backed by the authoritative finding.",
+			"AIDAST-* id so the hypothesis is backed by the authoritative finding.",
 		Parameters: []tools.Parameter{
 			{Name: "hypothesis_id", Description: "The hypothesis id from record_hypothesis (e.g. H-3).", Required: true},
 			{Name: "kind", Description: "One of: baseline, probe, exploit, artifact, finding_ref.", Required: false},
 			{Name: "summary", Description: "What was observed and why it matters.", Required: true},
 			{Name: "request", Description: "Optional raw request evidence (bounded).", Required: false},
 			{Name: "response", Description: "Optional raw response evidence (bounded).", Required: false},
-			{Name: "finding_id", Description: "When kind=finding_ref, the reported finding id (e.g. XALG-3).", Required: false},
+			{Name: "finding_id", Description: "When kind=finding_ref, the reported finding id (e.g. AIDAST-3).", Required: false},
 			{Name: "confidence", Description: "0.0-1.0 quality of this observation.", Required: false},
 		},
 		Execute: a.addHypothesisEvidenceTool,

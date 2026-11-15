@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -299,10 +300,40 @@ func (s *Server) executeScanSession(sess *scanSession) {
 		}
 	}()
 
+	// 5a. Token-provider auth: fetch the scan's tokens BEFORE the agent touches
+	// the target (fail closed — never scan unauthenticated by accident), then
+	// keep them fresh for the life of this session.
+	tokenBriefing := ""
+	if sess.tokenAuth.enabled() {
+		authA, authB, terr := s.startTokenAuth(sess, sctx.ID)
+		if terr != nil {
+			log.Printf("[token-provider] %s: %v", sess.id, terr)
+			sess.abortReason = "token_provider_failed"
+			s.broadcastToInstance(sess.instanceID, WSEvent{
+				Type:      "error",
+				Content:   "Token provider failed — scan not started: " + terr.Error(),
+				Timestamp: time.Now().Format(time.RFC3339),
+			})
+			agnt.Stop()
+		} else {
+			defer stopTokenAuth(sess, sctx.ID)
+			if authA != "" {
+				agnt.SetTargetAuth(authA)
+			}
+			if authB != "" {
+				agnt.SetTargetAuthSecondary(authB)
+			}
+			tokenBriefing = tokenAuthBriefing(sess.tokenManager, sess.tokenAuth.Provider)
+		}
+	}
+
 	// 6. Build instruction with severity filter
 	instruction := sess.instruction
 	if len(sess.severityFilter) > 0 {
 		instruction = buildSeverityPrefix(sess.severityFilter) + "\n\n" + instruction
+	}
+	if tokenBriefing != "" {
+		instruction = strings.TrimSpace(instruction + "\n" + tokenBriefing + "Current auth headers for terminal tools: source " + filepath.Join(sess.scanDir, "auth", "role_a.env") + " (role A) / role_b.env (role B) and use $AIDAST_AUTH_HEADER.")
 	}
 
 	// 7. Run agent (blocks until finished or stopped). Recheck the parent after

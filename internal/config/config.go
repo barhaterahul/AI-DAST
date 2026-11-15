@@ -32,12 +32,6 @@ type Config struct {
 	LLMProfile          string   // AIDASTING_LLM_PROFILE — active credential pointer "<provider>:<profileId>" (v4.4.22+)
 	ReasoningEffort     string   // AIDASTING_REASONING_EFFORT — "none", "low", "medium", "high", or "xhigh"
 
-	// Language is the output language for human-readable AI content — agent
-	// reasoning, notes, vulnerability findings, and post-scan chat. It does
-	// NOT change tool call structure or technical tokens (payloads, commands,
-	// URLs, CVE/CWE IDs). AIDASTING_LANGUAGE, canonical code (e.g. "en",
-	// "zh-CN"); default "en" (English) so existing scans are unchanged.
-	Language         string
 	OllamaCompatible bool     // AIDASTING_OLLAMA_COMPATIBLE — force Ollama request semantics for a custom endpoint
 	Temperature      *float64 // AIDASTING_TEMPERATURE — LLM temperature (0.0-2.0), default 0.2; pointer to distinguish unset from 0.0
 	LLMMaxRetries    int      // AIDASTING_LLM_MAX_RETRIES
@@ -502,7 +496,6 @@ func load() *Config {
 		Checklist:                envOrChecklist(envOr("AIDASTING_CHECKLIST", "full")),
 		LLMProfile:               envOr("AIDASTING_LLM_PROFILE", ""),
 		ReasoningEffort:          envOr("AIDASTING_REASONING_EFFORT", "high"),
-		Language:                 NormalizeLanguage(envOr("AIDASTING_LANGUAGE", DefaultLanguage)),
 		OllamaCompatible:         envOrBool("AIDASTING_OLLAMA_COMPATIBLE", false),
 		Temperature:              envOrFloatPtr("AIDASTING_TEMPERATURE", 0.2),
 		LLMMaxRetries:            envOrInt("AIDASTING_LLM_MAX_RETRIES", 5),

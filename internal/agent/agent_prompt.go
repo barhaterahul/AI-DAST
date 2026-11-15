@@ -456,14 +456,6 @@ You have access to **expert-level vulnerability skills** via the read_skill and 
 		prompt = prompt + "\n\n## CANONICAL TOOL REFERENCE — FOLLOW EXACTLY\n" + embeddedToolReference
 	}
 
-	// Localize human-readable output when the operator selected a non-English
-	// language. The directive is prepended so it carries maximum weight, and
-	// it explicitly preserves tool structure / technical tokens so scans stay
-	// correct. Empty for English, so English prompts are unchanged.
-	lang := ""
-	if a.cfg != nil {
-		lang = a.cfg.Language
-	}
 	// MODE AWARENESS. The depth-first doctrine and the "capture the flag"
 	// exploitation sections in this prompt are tuned for single-flag CTF/benchmark
 	// tasks. On a professional assessment (no flag) that same guidance makes the
@@ -484,10 +476,6 @@ This target is a reproducible local fixture, but treat it exactly like a remote 
 
 ` + prompt
 	}
-	if directive := config.OutputLanguageDirective(lang); directive != "" {
-		prompt = directive + "\n\n" + prompt
-	}
-
 	if boundary := a.targetBoundaryPromptSection(targets); boundary != "" {
 		if marker := "## YOUR HACKER MINDSET"; strings.Contains(prompt, marker) {
 			prompt = strings.Replace(prompt, marker, boundary+"\n\n"+marker, 1)
@@ -978,7 +966,7 @@ curl -sk "https://TARGET/endpoint?param=test'\"<>(){}" -o tmp/special.txt
 diff <(wc -c tmp/baseline.txt) <(wc -c tmp/special.txt)  # Different size = interesting
 
 # 3. Check if input is reflected in the response
-curl -sk "https://TARGET/endpoint?param=XALG0R1XTEST" | grep -c "XALG0R1XTEST"
+curl -sk "https://TARGET/endpoint?param=AIDAST1NGTEST" | grep -c "AIDAST1NGTEST"
 
 # 4. Test for SQL errors with a single quote
 curl -sk "https://TARGET/endpoint?param='" | grep -iE "sql|syntax|mysql|postgres|oracle|error"
@@ -1204,7 +1192,7 @@ curl -sk "https://TARGET/page?param=test'\"<>(){}" -o tmp/special.txt
 wc -c tmp/special.txt  # Compare size — different = interesting
 
 # 3. Check if input is REFLECTED in the response
-curl -sk "https://TARGET/page?param=XALG0R1XTEST" | grep -c "XALG0R1XTEST"
+curl -sk "https://TARGET/page?param=AIDAST1NGTEST" | grep -c "AIDAST1NGTEST"
 # If reflected → potential XSS. Check encoding:
 curl -sk "https://TARGET/page?param=<script>" | grep -o '&lt;script&gt;\|<script>'
 
@@ -1412,7 +1400,7 @@ for param in ssrf_params:
 - Test HTTP method override: X-HTTP-Method-Override, X-Method-Override
 - Test path traversal on API: /api/v1/users/../admin/
 - **Login/page gated as "internal only" or by client IP -> spoof the source-IP headers.** When a page says "Access restricted to internal employees", "localhost only", or checks the client IP, resend WITH these headers set to 127.0.0.1 / localhost / 10.0.0.1 (try each, and try several at once): X-Forwarded-For, X-Real-IP, X-Client-IP, X-Originating-IP, X-Remote-IP, X-Remote-Addr, Forwarded: for=127.0.0.1, X-Forwarded-Host. Many apps trust X-Forwarded-For blindly, so POST the login with X-Forwarded-For: 127.0.0.1 and the flag/admin view appears.
-- **HTTP method tampering to bypass auth (CWE-650).** If a path returns 401/403 (e.g. Basic-Auth via an .htaccess <Limit GET POST> block, which only protects the listed methods), the restriction often does NOT cover other verbs. The RELIABLE bypass is an arbitrary/unknown verb that the server still routes to the app so it renders the full page body: curl -X FOO (or -X XALG, -X HELLO) https://TARGET/path — mod_php/most handlers process an unknown method like a GET and return the body (with the flag), while the <Limit GET POST> auth block never matched your method. Do this FIRST. Note: OPTIONS and HEAD frequently bypass the auth too but return NO body (the server answers them itself), so they confirm the bypass exists but will NOT reveal the flag — always follow up with an arbitrary verb (and try X-HTTP-Method-Override: GET / lowercase get) to actually read the body. Always try one arbitrary-verb request against any 401/403 page before assuming it is locked or pivoting to dirbusting.
+- **HTTP method tampering to bypass auth (CWE-650).** If a path returns 401/403 (e.g. Basic-Auth via an .htaccess <Limit GET POST> block, which only protects the listed methods), the restriction often does NOT cover other verbs. The RELIABLE bypass is an arbitrary/unknown verb that the server still routes to the app so it renders the full page body: curl -X FOO (or -X AIDAST, -X HELLO) https://TARGET/path — mod_php/most handlers process an unknown method like a GET and return the body (with the flag), while the <Limit GET POST> auth block never matched your method. Do this FIRST. Note: OPTIONS and HEAD frequently bypass the auth too but return NO body (the server answers them itself), so they confirm the bypass exists but will NOT reveal the flag — always follow up with an arbitrary verb (and try X-HTTP-Method-Override: GET / lowercase get) to actually read the body. Always try one arbitrary-verb request against any 401/403 page before assuming it is locked or pivoting to dirbusting.
 
 ---
 

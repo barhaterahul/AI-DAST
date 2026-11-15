@@ -1217,6 +1217,7 @@ func findDuplicateVulnerabilityWithRetry(existing []Vulnerability, title, descri
 	// same-origin endpoints are reduced to their path, so "/tokens" and
 	// "https://example.com/tokens" cannot evade deduplication.
 	normalizedEndpoint := dedupEndpointKeyForTarget(target, endpoint)
+	endpointKeys := dedupEndpointKeysForTarget(target, endpoint)
 	vulnType := extractVulnTypeWithCWE(title, description, cwe)
 	traversalRoot := ""
 	if vulnType == "lfi" {
@@ -1230,6 +1231,7 @@ func findDuplicateVulnerabilityWithRetry(existing []Vulnerability, title, descri
 		}
 		existingTitle := normalizeFindingText(vuln.Title)
 		existingEndpoint := dedupEndpointKeyForTarget(vuln.Target, vuln.Endpoint)
+		sharesEndpoint := endpointsOverlap(endpointKeys, dedupEndpointKeysForTarget(vuln.Target, vuln.Endpoint))
 		existingType := extractVulnTypeWithCWE(vuln.Title, vuln.Description, vuln.CWE)
 		sameTarget := sameDedupTarget(target, vuln.Target)
 		sharesReportedCVE := sharesCVE(reportedCVEs, findingCVEs(vuln.Title, vuln.Description, vuln.CVE))
@@ -1259,7 +1261,7 @@ func findDuplicateVulnerabilityWithRetry(existing []Vulnerability, title, descri
 		}
 
 		// Same vulnerability class on the same normalized endpoint.
-		if sameTarget && vulnType != "" && vulnType == existingType && normalizedEndpoint != "" && normalizedEndpoint == existingEndpoint {
+		if sameTarget && vulnType != "" && vulnType == existingType && sharesEndpoint {
 			return vuln, fmt.Sprintf("⚠️ DUPLICATE: Same vulnerability type '%s' already reported on endpoint '%s' as %s ('%s'). Skipping.\nIf this is genuinely different, use a distinct endpoint or describe how it differs.",
 				vulnType, endpoint, vuln.ID, vuln.Title), true
 		}
@@ -1292,7 +1294,7 @@ func findDuplicateVulnerabilityWithRetry(existing []Vulnerability, title, descri
 		// extracted as sqli). When BOTH findings carry concrete
 		// code-execution language on the same normalized endpoint of the same
 		// target, they are the same root cause regardless of the label.
-		if sameTarget && normalizedEndpoint != "" && normalizedEndpoint == existingEndpoint &&
+		if sameTarget && sharesEndpoint &&
 			codeExecutionSignal(title, description) && codeExecutionSignal(vuln.Title, vuln.Description) {
 			return vuln, fmt.Sprintf("⚠️ DUPLICATE: A code-execution finding is already reported on endpoint '%s' as %s ('%s'). Same root cause (arbitrary code/command execution on the same sink) — do not re-report; describe genuinely different sinks with a distinct endpoint.",
 				endpoint, vuln.ID, vuln.Title), true
@@ -1331,7 +1333,7 @@ func findUpgradeableVulnerabilityIndex(existing []Vulnerability, incoming Vulner
 		return -1
 	}
 	incomingType := extractVulnTypeWithCWE(incoming.Title, incoming.Description, incoming.CWE)
-	incomingEndpoint := dedupEndpointKeyForTarget(incoming.Target, incoming.Endpoint)
+	incomingEndpoints := dedupEndpointKeysForTarget(incoming.Target, incoming.Endpoint)
 	incomingTitle := normalizeFindingText(incoming.Title)
 	incomingCVEs := findingCVEs(incoming.Title, incoming.Description, incoming.CVE)
 	for i, candidate := range existing {
@@ -1342,8 +1344,7 @@ func findUpgradeableVulnerabilityIndex(existing []Vulnerability, incoming Vulner
 		if incomingType == "" || incomingType != candidateType {
 			continue
 		}
-		candidateEndpoint := dedupEndpointKeyForTarget(candidate.Target, candidate.Endpoint)
-		sameRoute := incomingEndpoint != "" && incomingEndpoint == candidateEndpoint
+		sameRoute := endpointsOverlap(incomingEndpoints, dedupEndpointKeysForTarget(candidate.Target, candidate.Endpoint))
 		sameTitle := incomingTitle != "" && incomingTitle == normalizeFindingText(candidate.Title)
 		sameCVE := sharesCVE(incomingCVEs, findingCVEs(candidate.Title, candidate.Description, candidate.CVE))
 		if sameRoute || sameTitle || sameCVE {
@@ -3492,7 +3493,7 @@ func promoteIfChildOfWildcard(childCtxID, vulnID string) {
 
 // MergeVulnsToContext copies all vulnerabilities from srcContextID into dstContextID.
 // Semantic duplicates are skipped. ID collisions are renumbered because each
-// child context starts its own XALG-1 sequence.
+// child context starts its own AIDAST-1 sequence.
 func MergeVulnsToContext(srcContextID, dstContextID string) int {
 	if srcContextID == "" || dstContextID == "" || srcContextID == dstContextID {
 		return 0
@@ -3526,8 +3527,9 @@ func MergeVulnsToContext(srcContextID, dstContextID string) int {
 		}
 		if seenIDs[v.ID] {
 			nextID := len(dstStore.vulns) + 1
+			prefix := findingIDPrefixFor(dstStore.vulns)
 			for {
-				v.ID = fmt.Sprintf("XALG-%d", nextID)
+				v.ID = fmt.Sprintf("%s%d", prefix, nextID)
 				if !seenIDs[v.ID] {
 					break
 				}
@@ -3566,8 +3568,9 @@ func SeedVulnsForContext(contextID string, vulns []Vulnerability) int {
 		}
 		if seenIDs[v.ID] {
 			nextID := len(dstStore.vulns) + 1
+			prefix := findingIDPrefixFor(dstStore.vulns)
 			for {
-				v.ID = fmt.Sprintf("XALG-%d", nextID)
+				v.ID = fmt.Sprintf("%s%d", prefix, nextID)
 				if !seenIDs[v.ID] {
 					break
 				}
@@ -4036,7 +4039,7 @@ func extractVulnTypeFromText(lower string) string {
 		{"xss", []string{"xss", "cross-site scripting", "cross site scripting", "reflected xss", "stored xss", "dom xss", "script injection"}},
 		{"sqli", []string{"sql injection", "sqli", "sql inject", "blind sql", "union select", "error-based sql"}},
 		{"ssrf", []string{"ssrf", "server-side request forgery", "server side request forgery"}},
-		{"idor", []string{"idor", "insecure direct object", "broken access control", "unauthorized access"}},
+		{"idor", []string{"idor", "insecure direct object", "broken access control", "unauthorized access", "bola", "bfla", "broken object level", "broken function level", "missing function level"}},
 		{"lfi", []string{"local file inclusion", "lfi", "file inclusion", "path traversal", "directory traversal", "path disclosure", "physical path"}},
 		{"rfi", []string{"remote file inclusion", "rfi"}},
 		{"rce", []string{"remote code execution", "rce", "command injection", "os command", "code execution"}},
@@ -4044,6 +4047,16 @@ func extractVulnTypeFromText(lower string) string {
 		{"xxe", []string{"xxe", "xml external entity"}},
 		{"open_redirect", []string{"open redirect", "url redirect", "unvalidated redirect"}},
 		{"auth_bypass", []string{"authentication bypass", "auth bypass", "login bypass", "auth flow"}},
+		// Default / hard-coded credentials. Without this class such findings
+		// extracted as "" and escaped every same-class dedup rule: the same
+		// admin:admin login was stored twice (once unverified, once verified).
+		{"default_credentials", []string{"default credential", "default administrator credential", "default admin credential", "vendor-default", "vendor default", "default password", "default login", "factory-default", "hardcoded credential", "hard-coded credential", "hardcoded password", "hard-coded password"}},
+		// Privilege escalation is an access-control finding, but it is matched
+		// only after the injection/RCE classes so "RCE leading to privilege
+		// escalation" stays rce. It must win over user_enumeration: an admin
+		// console reachable by a normal user that also lists usernames is one
+		// access-control bug, not an enumeration finding.
+		{"idor", []string{"privilege escalation", "vertical privilege", "horizontal privilege"}},
 		{"user_enumeration", []string{"user enumeration", "username enumeration", "account enumeration", "email enumeration", "member enumeration", "member id enumeration", "account recovery enumeration"}},
 		{"debug_disclosure", []string{"stack trace", "stacktrace", "traceback", "debug mode", "debug page", "debug stack", "exposes stack trace", "exception disclosure", "verbose exception", "whoops error", "werkzeug debugger", "django debug", "symfony profiler"}},
 		{"info_disclosure", []string{"information disclosure", "info disclosure", "sensitive data exposure", "data leak", "api key", "credential leak", "password leak", "exposed secret", "token leak", "verbose error"}},
@@ -4115,6 +4128,9 @@ func cweToVulnType(cwe string) string {
 		return "open_redirect"
 	case "287", "288", "305", "306":
 		return "auth_bypass"
+	case "259", "798", "1392", "1393":
+		// Hard-coded password / credentials, default credentials, default password.
+		return "default_credentials"
 	case "203", "204":
 		// CWE-203/204: observable discrepancy / response differences — the
 		// signature of username/account enumeration.
@@ -4124,7 +4140,8 @@ func cweToVulnType(cwe string) string {
 		// stack-trace/debug disclosure. This is a target-wide class (one config
 		// per app), so bucket it with debug_disclosure, not generic info leak.
 		return "debug_disclosure"
-	case "200", "532":
+	case "200", "312", "319", "532":
+		// CWE-312/319: cleartext storage / transmission of sensitive data.
 		return "info_disclosure"
 	case "284", "285", "566", "639", "862", "863":
 		return "idor"
@@ -4274,7 +4291,80 @@ func sameDedupPort(left, right dedupTargetOrigin) bool {
 // commonly alternate between: an origin-relative path and a full same-origin
 // URL. Cross-origin absolute endpoints remain absolute so findings on a pivoted
 // service are not accidentally merged.
+// Agents often write the endpoint field as free text rather than a bare path:
+// "POST /x (application/xml body)", "GET/POST /x", or several routes joined by
+// "and", commas, or " / ". Each of those spellings produced a different dedup
+// key, so the same finding was stored again (observed: one admin:admin login
+// stored four times, and repeat XXE/CSRF/token findings on the same route).
+var (
+	endpointMethodPrefixRe = regexp.MustCompile(`(?i)^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)(?:\s*/\s*(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS))*\s+`)
+	endpointNoteRe         = regexp.MustCompile(`\s*\([^()]*\)`)
+	endpointListSepRe      = regexp.MustCompile(`(?i)\s+(?:and|or|&)\s+|\s*[,;|]\s*|\s+/\s+`)
+)
+
+// endpointCandidates splits a free-text endpoint field into the individual
+// routes it names, dropping HTTP methods and parenthesized notes. Text that
+// names no path or URL is returned unchanged so legacy behavior is kept.
+func endpointCandidates(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	cleaned := endpointNoteRe.ReplaceAllString(raw, " ")
+	var out []string
+	for _, part := range endpointListSepRe.Split(cleaned, -1) {
+		part = endpointMethodPrefixRe.ReplaceAllString(strings.TrimSpace(part), "")
+		fields := strings.Fields(part)
+		if len(fields) == 0 {
+			continue
+		}
+		if tok := fields[0]; strings.HasPrefix(tok, "/") || strings.Contains(tok, "://") {
+			out = append(out, tok)
+		}
+	}
+	if len(out) == 0 {
+		return []string{raw}
+	}
+	return out
+}
+
+// dedupEndpointKeysForTarget returns the dedup key of every route an endpoint
+// field names (see endpointCandidates), de-duplicated, in order.
+func dedupEndpointKeysForTarget(target, endpoint string) []string {
+	var keys []string
+	seen := map[string]bool{}
+	for _, candidate := range endpointCandidates(endpoint) {
+		if key := dedupSingleEndpointKeyForTarget(target, candidate); key != "" && !seen[key] {
+			seen[key] = true
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+// endpointsOverlap reports whether two key sets share at least one route.
+func endpointsOverlap(a, b []string) bool {
+	for _, x := range a {
+		for _, y := range b {
+			if x == y {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// dedupEndpointKeyForTarget returns the dedup key of the first route an
+// endpoint field names. Comparisons that should match any shared route use
+// dedupEndpointKeysForTarget + endpointsOverlap instead.
 func dedupEndpointKeyForTarget(target, endpoint string) string {
+	if keys := dedupEndpointKeysForTarget(target, endpoint); len(keys) > 0 {
+		return keys[0]
+	}
+	return ""
+}
+
+func dedupSingleEndpointKeyForTarget(target, endpoint string) string {
 	raw := strings.TrimSpace(endpoint)
 	if u, err := url.Parse(raw); err == nil && u.IsAbs() && u.Hostname() != "" {
 		origin := u.Scheme + "://" + u.Host

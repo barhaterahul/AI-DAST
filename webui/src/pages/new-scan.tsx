@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   FileText,
   ImageIcon,
+  KeyRound,
   Loader2,
   Play,
   Radar,
@@ -29,7 +30,9 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { PHASES } from "@/components/phase-progress";
 import { api } from "@/api/client";
-import { useAuthProfiles, useLLMSettings, useProviders, useStartScan } from "@/api/queries";
+import { useAuthProfiles, useLLMSettings, useProviders, useStartScan, useTokenProviders } from "@/api/queries";
+import { CollectionPreview } from "@/components/collection-preview";
+import type { ContextPreview } from "@/types/api";
 import { cn } from "@/lib/utils";
 
 const SCAN_MODES = [
@@ -97,6 +100,14 @@ export default function NewScanPage() {
   const [contextPath, setContextPath] = useState("");
   const [contextInfo, setContextInfo] = useState<string>("");
   const [contextUploading, setContextUploading] = useState(false);
+  const [contextPreview, setContextPreview] = useState<ContextPreview | null>(null);
+  const [tokenProvider, setTokenProvider] = useState("");
+  const [tokenProfile, setTokenProfile] = useState("");
+  const [tokenProfileB, setTokenProfileB] = useState("");
+  const tokenProvidersQuery = useTokenProviders();
+  const tokenProviders = tokenProvidersQuery.data ?? [];
+  const selectedTokenProvider = tokenProviders.find((p) => p.id === tokenProvider);
+  const tokenProfiles = Object.keys(selectedTokenProvider?.profiles ?? {}).sort();
   const [targetAuth, setTargetAuth] = useState("");
   const [targetAuthB, setTargetAuthB] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -171,17 +182,30 @@ export default function NewScanPage() {
     const files = fileList ? Array.from(fileList) : [];
     if (!files.length) return;
     setError(null);
-    const bad = files.find(
-      (f) => !/\.(json|ya?ml|har|xml|apk|apks|xapk|aab|txt)$/i.test(f.name),
-    );
+    const allowed = /\.(json|ya?ml|har|xml|apk|apks|xapk|aab|txt|bru|zip)$/i;
+    const isFolder = files.some((f) => f.webkitRelativePath);
+    if (isFolder) {
+      // A folder (Bruno collection) contains unrelated files (.env, .git,
+      // node_modules…); send only collection files.
+      const keep = files.filter(
+        (f) => /\.(bru|json)$/i.test(f.name) && !/(^|\/)(node_modules|\.git)\//.test(f.webkitRelativePath),
+      );
+      files.splice(0, files.length, ...keep);
+      if (!files.length) {
+        setError("That folder has no .bru or .json collection files.");
+        return;
+      }
+    }
+    const bad = files.find((f) => !allowed.test(f.name));
     if (bad) {
-      setError("Context must be an OpenAPI/Swagger spec, HAR, Postman collection (+ environment), Burp export, or Android app (.json, .yaml, .yml, .har, .xml, .apk, .apks, .xapk, .aab).");
+      setError("Context must be an OpenAPI/Swagger spec, HAR, Postman collection (+ environment), Bruno collection (.bru files, folder or .zip), Burp export, or Android app.");
       return;
     }
     setContextUploading(true);
     try {
       const res = await api.uploadContext(files);
       setContextPath(res.path);
+      setContextPreview(res);
       const fmts = (res.formats || []).join(", ") || "context";
       const label = files.length === 1 ? files[0].name : `${files.length} files`;
       setContextInfo(
@@ -201,8 +225,13 @@ export default function NewScanPage() {
 
   async function submitScan(saveOnly: boolean) {
     setError(null);
-    if (!targets.length) {
-      setError("At least one target is required.");
+    const derivedTargets = !targets.length && contextPath ? contextPreview?.base_url_list ?? [] : [];
+    if (!targets.length && !derivedTargets.length) {
+      setError("At least one target is required (or attach a collection whose requests use absolute URLs).");
+      return;
+    }
+    if (tokenProvider && !tokenProfile && tokenProfiles.length > 0) {
+      setError("Choose the token provider profile to use as the default session.");
       return;
     }
     try {
@@ -220,8 +249,11 @@ export default function NewScanPage() {
         company_name: companyName.trim() || undefined,
         logo_path: logoPath || undefined,
         scan_context: contextPath || undefined,
-        target_auth: targetAuth.trim() || undefined,
-        target_auth_b: targetAuthB.trim() || undefined,
+        target_auth: tokenProvider ? undefined : targetAuth.trim() || undefined,
+        target_auth_b: tokenProvider ? undefined : targetAuthB.trim() || undefined,
+        token_auth: tokenProvider
+          ? { provider: tokenProvider, profile: tokenProfile || undefined, profile_b: tokenProfileB || undefined }
+          : undefined,
         save_only: saveOnly || undefined,
       });
       const id =
@@ -314,7 +346,7 @@ export default function NewScanPage() {
             <p className="text-[11px] text-muted-foreground text-pretty">
               Attach an <span className="font-medium text-foreground">OpenAPI/Swagger spec</span>,{" "}
               <span className="font-medium text-foreground">HAR capture</span>, or{" "}
-              <span className="font-medium text-foreground">Postman collection</span>,{" "}
+              <span className="font-medium text-foreground">Postman or Bruno collection</span>,{" "}
               <span className="font-medium text-foreground">Burp export</span>, or an{" "}
               <span className="font-medium text-foreground">Android APK</span>. AI-DAST-ING
               seeds the scan with the target&apos;s real endpoints and parameters (and any captured
@@ -343,9 +375,32 @@ export default function NewScanPage() {
                 id="scanContext"
                 type="file"
                 multiple
-                accept=".json,.yaml,.yml,.har,.xml,.apk,.apks,.xapk,.aab,.txt"
+                accept=".json,.yaml,.yml,.har,.xml,.apk,.apks,.xapk,.aab,.txt,.bru,.zip"
                 disabled={contextUploading}
                 className="hidden"
+                onChange={(e) => {
+                  void uploadScanContext(e.currentTarget.files);
+                  e.currentTarget.value = "";
+                }}
+              />
+              <label
+                htmlFor="scanContextFolder"
+                className={cn(
+                  "inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-transparent px-3 text-xs font-medium transition-colors hover:bg-accent",
+                  contextUploading && "pointer-events-none opacity-60",
+                )}
+                title="Upload a Bruno collection folder"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Attach folder
+              </label>
+              <input
+                id="scanContextFolder"
+                type="file"
+                multiple
+                className="hidden"
+                disabled={contextUploading}
+                {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
                 onChange={(e) => {
                   void uploadScanContext(e.currentTarget.files);
                   e.currentTarget.value = "";
@@ -365,6 +420,7 @@ export default function NewScanPage() {
                   onClick={() => {
                     setContextPath("");
                     setContextInfo("");
+                    setContextPreview(null);
                   }}
                   aria-label="Remove attached context"
                 >
@@ -372,6 +428,23 @@ export default function NewScanPage() {
                 </Button>
               )}
             </div>
+            {contextPreview && contextPath && (contextPreview.requests?.length ?? 0) > 0 && (
+              <CollectionPreview
+                key={contextPath}
+                preview={contextPreview}
+                onChange={(p) => {
+                  setContextPreview(p);
+                  setContextInfo(`${p.endpoints} request${p.endpoints === 1 ? "" : "s"} selected (${(p.formats || []).join(", ")})`);
+                }}
+                onUseTargets={(urls) => setTargetsText(urls.join("\n"))}
+              />
+            )}
+            {!targets.length && (contextPreview?.base_url_list?.length ?? 0) > 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                No targets entered — the scan will use the collection&apos;s hosts:{" "}
+                <span className="mono">{contextPreview!.base_url_list!.join(", ")}</span>
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -380,6 +453,78 @@ export default function NewScanPage() {
             <CardTitle className="text-base">{t("newScan.section.authAccess")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <Label className="flex items-center gap-2">
+                <KeyRound className="h-3.5 w-3.5 text-muted-foreground" /> Token provider
+              </Label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Select
+                  value={tokenProvider || "__none"}
+                  onValueChange={(v) => {
+                    const id = v === "__none" ? "" : v;
+                    setTokenProvider(id);
+                    const profs = Object.keys(tokenProviders.find((p) => p.id === id)?.profiles ?? {}).sort();
+                    setTokenProfile(profs[0] ?? "");
+                    setTokenProfileB("");
+                  }}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">None (use headers below)</SelectItem>
+                    {tokenProviders.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name || p.id}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {tokenProvider && (
+                  <Select value={tokenProfile} onValueChange={setTokenProfile}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Default session profile" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {tokenProfiles.map((n) => (
+                        <SelectItem key={n} value={n}>
+                          Role A: {n}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {tokenProvider && (
+                  <Select value={tokenProfileB || "__none"} onValueChange={(v) => setTokenProfileB(v === "__none" ? "" : v)}>
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder="Second identity (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">No second identity</SelectItem>
+                      {tokenProfiles
+                        .filter((n) => n !== tokenProfile)
+                        .map((n) => (
+                          <SelectItem key={n} value={n}>
+                            Role B: {n}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              <p className="text-[11px] text-muted-foreground text-pretty">
+                {tokenProvider
+                  ? "Tokens are fetched before the scan starts (it won't start if this fails), sent on every request and refreshed before they expire or after a 401. Role B proves cross-account access."
+                  : tokenProviders.length
+                    ? "Pick a token provider to get a fresh JWT from your token API for this scan."
+                    : "To get a JWT from your token API automatically, add one under Token Providers."}{" "}
+                <a href="/token-providers" className="underline">
+                  Manage token providers
+                </a>
+              </p>
+            </div>
+            {!tokenProvider && (
+            <>
             <div className="space-y-2">
               <Label htmlFor="targetAuth">{t("newScan.label.authSession")}</Label>
               <Textarea
@@ -413,6 +558,8 @@ export default function NewScanPage() {
                 with concrete evidence.
               </p>
             </div>
+            </>
+            )}
           </CardContent>
         </Card>
 

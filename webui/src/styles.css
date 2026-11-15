@@ -338,3 +338,90 @@
     opacity: 1;
   }
 }
+
+/* ---- Exploration Graph ---------------------------------------------------- */
+/* Nodes read their accent from --eg-accent (set inline per node). */
+@keyframes eg-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.eg-pop {
+  animation: eg-pop 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@keyframes eg-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--eg-accent) 45%, transparent),
+      0 0 18px -4px color-mix(in srgb, var(--eg-accent) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--eg-accent) 0%, transparent),
+      0 0 28px -2px color-mix(in srgb, var(--eg-accent) 70%, transparent);
+  }
+}
+.eg-halo {
+  animation: eg-halo 2.4s ease-in-out infinite;
+}
+@keyframes eg-spot {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--eg-accent), 0 0 24px 2px color-mix(in srgb, var(--eg-accent) 60%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--eg-accent), 0 0 40px 8px color-mix(in srgb, var(--eg-accent) 75%, transparent);
+  }
+}
+.eg-spot {
+  animation: eg-spot 1.1s ease-in-out infinite;
+}
+@keyframes eg-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+.eg-ping {
+  animation: eg-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+@keyframes eg-dash {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.eg-dash {
+  animation: eg-dash 1.2s linear infinite;
+}
+.eg-canvas {
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 0%, color-mix(in srgb, #8b5cf6 9%, transparent), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 100% 100%, color-mix(in srgb, #ef4444 8%, transparent), transparent 60%),
+    var(--background);
+}
+.eg-canvas .react-flow__background {
+  background: transparent !important;
+}
+.eg-canvas .react-flow__renderer,
+.eg-canvas .react-flow {
+  background: transparent !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eg-halo,
+  .eg-spot,
+  .eg-ping,
+  .eg-dash {
+    animation: none;
+  }
+  .eg-particle {
+    display: none;
+  }
+}

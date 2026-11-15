@@ -637,8 +637,6 @@ Some settings require a restart because they affect process startup or server bi
 | `AIDASTING_API_KEY`                   | none             | Required LLM provider API key.                         |
 | `AIDASTING_API_BASE`                  | provider default | Custom OpenAI-compatible API base URL.                 |
 | `AIDASTING_REASONING_EFFORT`          | `high`           | Reasoning effort: `none`, `low`, `medium`, `high`, or `xhigh` (`xhigh` maps to `high` for Ollama). |
-| `AIDASTING_LANGUAGE`                   | `en`             | Output language for AI-generated prose (agent reasoning, notes, findings, report content, post-scan chat). `en` or `zh-CN`. Technical tokens (payloads, commands, URLs, CVE/CWE IDs) always stay in their original form. Non-Latin languages render in the dashboard and HTML report automatically. |
-| `AIDASTING_PDF_CJK_FONT`               | none             | Absolute path to a TrueType (`.ttf`) font with CJK glyphs, used to render non-Latin languages (e.g. Simplified Chinese) in the exported **PDF** report. Only `.ttf` is supported (not `.ttc`/`.otf`). Without it, the PDF falls back to core fonts and non-Latin glyphs will not render (the HTML report is unaffected). |
 | `AIDASTING_OLLAMA_COMPATIBLE`         | `false`          | Apply Ollama reasoning semantics to a custom endpoint on a non-standard port. Port `11434` is detected automatically. |
 | `AIDASTING_LLM_MAX_RETRIES`           | `5`              | Retry count for transient LLM failures.                |
 | `AIDASTING_MEMORY_COMPRESSOR_TIMEOUT` | `30`             | Timeout in seconds for context compression.            |
