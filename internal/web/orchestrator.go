@@ -691,7 +691,7 @@ func (s *Server) runRegisteredMultiScan(run *multiScanRun, scanCfg *config.Confi
 func (s *Server) makeScanDir(target string) string {
 	dateDir := time.Now().Format("2006-01-02")
 	scanDirName := fmt.Sprintf("%s_%s", sanitizeTarget(target), randomSlug())
-	scanDir := filepath.Join(s.dataDir, target, dateDir, scanDirName)
+	scanDir := filepath.Join(s.dataDir, targetDirName(target), dateDir, scanDirName)
 	if err := os.MkdirAll(scanDir, 0700); err != nil {
 		log.Printf("[ERROR] Failed to create scan directory %s: %v", scanDir, err)
 	}

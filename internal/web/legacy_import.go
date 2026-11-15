@@ -101,7 +101,7 @@ func (s *Server) importLegacyDataDir() (int, error) {
 		} else {
 			date = time.Now().Format("2006-01-02")
 		}
-		dstDir := filepath.Join(s.dataDir, target, date, rec.ID)
+		dstDir := filepath.Join(s.dataDir, targetDirName(target), date, rec.ID)
 
 		if err := copyDirRecursive(srcDir, dstDir); err != nil {
 			log.Printf("[legacy-import] copy %s -> %s: %v", srcDir, dstDir, err)

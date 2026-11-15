@@ -3288,6 +3288,31 @@ func sanitizeTarget(target string) string {
 	return clean
 }
 
+// reservedDataDirNames are top-level entries of the data dir that a scan
+// target folder must never collide with.
+var reservedDataDirNames = map[string]bool{
+	"logos": true, "context": true, "sources": true, "uploads": true,
+	"auth": true, "tmp": true, "token_providers.json": true,
+}
+
+// targetDirName is the single, filesystem-safe top-level folder name for a
+// target's scans (e.g. "http://localhost:8080/app" -> "localhost_8080_app").
+// Using the raw target produced nested folders like "http:/localhost:8080/",
+// a ':' that is invalid on Windows, and — for a target containing ".." — a
+// path outside the data dir. Scan discovery walks the tree recursively, so
+// scans stored under the old layout stay readable.
+func targetDirName(target string) string {
+	name := sanitizeTarget(strings.TrimSpace(target))
+	name = strings.Trim(name, ".")
+	if name == "" {
+		name = "target"
+	}
+	if reservedDataDirNames[strings.ToLower(name)] {
+		name += "_target"
+	}
+	return name
+}
+
 // saveScanRecordTo saves a scan record to a specific directory.
 func (s *Server) saveScanRecordTo(rec *ScanRecord, scanDir string) {
 	if scanDir == "" {
