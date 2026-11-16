@@ -29,6 +29,7 @@ const en: Dict = {
   "topbar.openPalette": "Open command palette",
   "topbar.toggleMenu": "Toggle menu",
   "topbar.newScan": "New Scan",
+  "topbar.signOut": "Sign out",
   "topbar.stopAll": "Stop all",
   "topbar.scanning": "Scanning",
   "topbar.activeScan": "active scan",

@@ -252,7 +252,8 @@ Read from `~/.ai-dast-ing.env` (and process env). Key variables:
 | `AIDASTING_LLM_PROVIDER` | provider selected by the dashboard for catalog routing |
 | `AIDASTING_API_KEY` / `AIDASTING_API_BASE` | LLM credentials / custom endpoint |
 | `AIDASTING_BIND` | dashboard listen address, default `127.0.0.1` (set `0.0.0.0` to expose; port defaults to `9137`) |
-| `AIDASTING_PASSWORD` / `AIDASTING_PASSWORD_HASH` | dashboard auth |
+| `AIDASTING_PASSWORD` / `AIDASTING_PASSWORD_HASH` | dashboard auth (required by default; generated on first start if unset — `internal/web/auth_bootstrap.go`) |
+| `AIDASTING_AUTH_DISABLED` | opt out of dashboard login, loopback bind only |
 | `AIDASTING_DATA_DIR` | where scan records are stored |
 | `AIDASTING_MAX_ITERATIONS` / `_MAX_DURATION` / `_MAX_TOKENS` / `_MAX_TOOL_CALLS` | per-scan budgets |
 | `AIDASTING_MAX_NON_PROGRESS` | active seconds without validated assessment evidence; default 3600, 0 disables the clock |

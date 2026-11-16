@@ -1390,6 +1390,9 @@ func (s *Server) Start() error {
 		bindAddr = "127.0.0.1"
 	}
 	isLoopback := bindAddr == "127.0.0.1" || bindAddr == "::1" || bindAddr == "localhost"
+	if err := s.ensureDashboardAuth(isLoopback); err != nil {
+		return err
+	}
 	if !isLoopback && !authConfigured(s.cfg) {
 		return fmt.Errorf(
 			"refusing to bind to non-loopback address %q without auth: set AIDASTING_USERNAME and either AIDASTING_PASSWORD_HASH (bcrypt) or AIDASTING_PASSWORD in ~/.ai-dast-ing.env (dashboard), or AIDASTING_API_TOKEN (machine-to-machine API access), or set AIDASTING_BIND=127.0.0.1",
@@ -1414,7 +1417,7 @@ func (s *Server) Start() error {
 			log.Printf("Machine API tokens: %d configured (AIDASTING_API_TOKEN(S))", n)
 		}
 	} else {
-		log.Printf("Authentication disabled — listening on loopback only. Set AIDASTING_USERNAME and AIDASTING_PASSWORD_HASH in ~/.ai-dast-ing.env to enable.")
+		log.Printf("WARNING: dashboard authentication disabled by AIDASTING_AUTH_DISABLED (loopback only). Any web page you visit can reach this dashboard; unset it to require a login.")
 	}
 
 	// ── Auto-resume interrupted scan queue after short startup delay ──

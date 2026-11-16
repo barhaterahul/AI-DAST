@@ -1,11 +1,12 @@
-import { Link } from "react-router-dom";
-import { Loader2, Menu, Plus, Search, StopCircle } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Loader2, LogOut, Menu, Plus, Search, StopCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConnectionStatus } from "@/components/connection-status";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useStatus, useInstances, useStopAll } from "@/api/queries";
 import { useCommandPalette } from "@/components/command-palette";
 import { useI18n } from "@/i18n";
+import { useAuth } from "@/store/auth";
 
 export function Topbar({
   onMenuToggle,
@@ -21,6 +22,9 @@ export function Topbar({
   const { data: instances } = useInstances();
   const stopAll = useStopAll();
   const palette = useCommandPalette();
+  const navigate = useNavigate();
+  const authed = useAuth((s) => s.authEnabled && s.status === "authed");
+  const logout = useAuth((s) => s.logout);
 
   const running =
     status?.running_instances ?? (status?.running ? 1 : 0);
@@ -94,6 +98,22 @@ export function Topbar({
             <span className="hidden md:inline">{t("topbar.newScan")}</span>
           </Link>
         </Button>
+        {authed && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+            title={t("topbar.signOut")}
+            aria-label={t("topbar.signOut")}
+            onClick={async () => {
+              await logout();
+              navigate("/login", { replace: true });
+            }}
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden lg:inline">{t("topbar.signOut")}</span>
+          </Button>
+        )}
       </div>
     </header>
   );

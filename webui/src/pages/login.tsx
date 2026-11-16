@@ -1,12 +1,12 @@
-import { useState, type FormEvent } from "react"
+import { useEffect, useState, type FormEvent } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/store/auth"
-import { HttpError } from "@/api/client"
-import { AlertCircle } from "lucide-react"
+import { api, HttpError } from "@/api/client"
+import { AlertCircle, KeyRound } from "lucide-react"
 
 /**
  * Map a thrown error from `useAuth.login()` to a user-facing string.
@@ -63,6 +63,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // First start generated the admin password: point at the file holding it.
+  const [initialPasswordFile, setInitialPasswordFile] = useState<string | null>(null)
+  useEffect(() => {
+    api
+      .authStatus()
+      .then((s) => setInitialPasswordFile(s.initial_password_file ?? null))
+      .catch(() => {})
+  }, [])
 
   const from = (location.state as { from?: string } | null)?.from ?? "/"
 
@@ -120,6 +128,17 @@ export default function LoginPage() {
             </CardHeader>
             <CardContent>
               <form onSubmit={onSubmit} className="space-y-4">
+                {initialPasswordFile && (
+                  <div className="flex items-start gap-2 rounded-md border border-sky-500/30 bg-sky-500/5 p-3 text-xs text-sky-800 dark:text-sky-200">
+                    <KeyRound className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      First sign-in: the generated username (usually <span className="font-mono">admin</span>) and
+                      password were printed in the server output; the password is also in{" "}
+                      <span className="break-all font-mono">{initialPasswordFile}</span> (removed after you sign in).
+                      Change it with <span className="font-mono">ai-dast-ing --setup</span>.
+                    </span>
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
                   <Input

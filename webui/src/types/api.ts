@@ -247,6 +247,9 @@ export interface VersionInfo {
 
 export interface AuthStatus {
   auth_enabled: boolean;
+  /** Present before the first login when the server generated the admin
+   *  password: the path of the 0600 file holding it (never its contents). */
+  initial_password_file?: string;
   authenticated: boolean;
 }
 

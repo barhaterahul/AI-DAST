@@ -484,6 +484,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	loginRecordSuccess(ip)
+	ClearInitialPassword()
 
 	// Create session
 	token, err := generateSessionToken()
@@ -565,9 +566,17 @@ func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 		authenticated = true // No auth configured = always authenticated
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	resp := map[string]any{
 		"auth_enabled":  authEnabled,
 		"authenticated": authenticated,
-	})
+	}
+	// Only the file's location (never its contents), and only before login,
+	// so a first-time operator knows where the generated password is.
+	if authEnabled && !authenticated {
+		if p := initialPasswordPending(); p != "" {
+			resp["initial_password_file"] = p
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
 }
