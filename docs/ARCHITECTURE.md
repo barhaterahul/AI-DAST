@@ -3,7 +3,9 @@
 AI-DAST-ING is a single Go binary that runs an autonomous, LLM-driven web/API
 penetration test against an authorized target and produces an evidence-backed
 report. This document describes the code as it is today; it is the source of
-truth for how the packages fit together.
+truth for how the packages fit together. For Mermaid diagrams and a
+"where to change X" index aimed at AI coding agents, see
+[`ARCHITECTURE_DIAGRAMS.md`](ARCHITECTURE_DIAGRAMS.md).
 
 ## High-level layers
 
