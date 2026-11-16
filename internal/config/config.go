@@ -367,6 +367,11 @@ type Config struct {
 	// with the human login rate limiter. The web layer matches against
 	// SHA-256 digests of these values.
 	APITokens []string
+	// AuthDisabled (AIDASTING_AUTH_DISABLED=1) is the explicit opt-out from
+	// dashboard login. It only takes effect on a loopback bind; without it a
+	// server with no dashboard credentials generates an admin password on
+	// first start (see internal/web/auth_bootstrap.go).
+	AuthDisabled bool
 
 	// Network binding
 	// BindAddr controls which interface the web server listens on. Defaults to
@@ -582,6 +587,7 @@ func load() *Config {
 		Password:     envOr("AIDASTING_PASSWORD", ""),
 		PasswordHash: envOr("AIDASTING_PASSWORD_HASH", ""),
 		APITokens:    appendAPITokens(envOr("AIDASTING_API_TOKEN", ""), envOr("AIDASTING_API_TOKENS", "")),
+		AuthDisabled: envOrBool("AIDASTING_AUTH_DISABLED", false),
 
 		// Network binding — loopback-only by default.
 		BindAddr: envOr("AIDASTING_BIND", "127.0.0.1"),

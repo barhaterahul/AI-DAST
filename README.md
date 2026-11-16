@@ -357,13 +357,19 @@ GEMINI_API_KEY=AIza...
 
 ### 🔐 Dashboard Authentication
 
+The dashboard **always requires a login**, including on the default loopback bind. The dashboard starts scans whose agent runs shell commands, and an unauthenticated loopback port can be reached from any web page you visit (DNS rebinding).
+
+- `ai-dast-ing --setup` asks for a dashboard username and password (press Enter to generate one) and stores only a bcrypt hash.
+- If none is configured, the first start **generates an admin password**, prints it once, saves it to `~/.ai-dast-ing/initial-admin-password` (mode `0600`, deleted after your first sign-in), and stores the bcrypt hash in `~/.ai-dast-ing.env`.
+- Sign out from the top bar.
+
 ```bash
 AIDASTING_USERNAME=admin
-AIDASTING_PASSWORD=change-this-password
+AIDASTING_PASSWORD_HASH='$2a$10$...'   # bcrypt; AIDASTING_PASSWORD (plaintext) still works but is deprecated
 ```
 
-> [!TIP]
-> Prefer `AIDASTING_PASSWORD_HASH` for production deployments.
+> [!WARNING]
+> `AIDASTING_AUTH_DISABLED=1` turns the login off, but only on a loopback bind. Use it only on a single-user machine you trust; it is ignored when the dashboard is exposed.
 
 ## 🆙 Upgrading from previous versions
 
@@ -655,6 +661,7 @@ Some settings require a restart because they affect process startup or server bi
 | `AIDASTING_USERNAME`      | none              | Dashboard username.                |
 | `AIDASTING_PASSWORD`      | none              | Dashboard password.                |
 | `AIDASTING_PASSWORD_HASH` | none              | Preferred bcrypt password hash.    |
+| `AIDASTING_AUTH_DISABLED` | `false`           | Opt out of the dashboard login (loopback bind only). Without credentials the first start generates an admin password instead. |
 | `AIDASTING_WORKSPACE`     | current directory | Workspace root for scan execution. |
 
 ### 🤝 Integrations

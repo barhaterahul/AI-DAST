@@ -10,6 +10,8 @@ import (
 
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/config"
 	"github.com/barhaterahul/ai-dast-ing/v4/internal/providers"
+	"github.com/barhaterahul/ai-dast-ing/v4/internal/web"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/term"
 )
 
@@ -156,6 +158,9 @@ func runSetup(in io.Reader, out io.Writer) (bool, error) {
 	if err := p.println("  Your API key was not displayed and the file is readable only by your user."); err != nil {
 		return false, err
 	}
+	if err := setupDashboardLogin(p, path, existing); err != nil {
+		return false, err
+	}
 	launch, err := p.yesNo("Start the Web UI now?", true)
 	if err != nil {
 		return false, err
@@ -166,6 +171,80 @@ func runSetup(in io.Reader, out io.Writer) (bool, error) {
 		}
 	}
 	return launch, nil
+}
+
+// minDashboardPassword is the shortest operator-chosen dashboard password.
+const minDashboardPassword = 8
+
+// setupDashboardLogin configures the dashboard login. The dashboard requires
+// one by default (see internal/web/auth_bootstrap.go); this lets the operator
+// pick their own instead of using the generated one.
+func setupDashboardLogin(p *setupPrompter, path string, existing map[string]string) error {
+	if err := p.println("\nDashboard login"); err != nil {
+		return err
+	}
+	user := strings.TrimSpace(existing["AIDASTING_USERNAME"])
+	hasPassword := strings.TrimSpace(existing["AIDASTING_PASSWORD_HASH"]) != "" || strings.TrimSpace(existing["AIDASTING_PASSWORD"]) != ""
+	if user != "" && hasPassword {
+		keep, err := p.yesNo(fmt.Sprintf("Keep the existing dashboard login (user %q)?", user), true)
+		if err != nil || keep {
+			return err
+		}
+	}
+	if user == "" {
+		user = "admin"
+	}
+	user, err := p.required("Dashboard username", user)
+	if err != nil {
+		return err
+	}
+
+	var password string
+	generated := false
+	for {
+		password, err = p.secret("Dashboard password (Enter to generate one)", "")
+		if err != nil {
+			return err
+		}
+		if password == "" {
+			if password, err = web.GeneratePassword(); err != nil {
+				return err
+			}
+			generated = true
+			break
+		}
+		if len(password) >= minDashboardPassword {
+			break
+		}
+		if err := p.printf("  Use at least %d characters.\n", minDashboardPassword); err != nil {
+			return err
+		}
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	updates := map[string]string{
+		"AIDASTING_USERNAME":      user,
+		"AIDASTING_PASSWORD_HASH": string(hash),
+		"AIDASTING_PASSWORD":      "",
+	}
+	if err := config.UpdateEnvFile(path, updates); err != nil {
+		return err
+	}
+	_ = os.Setenv("AIDASTING_USERNAME", user)
+	_ = os.Setenv("AIDASTING_PASSWORD_HASH", string(hash))
+	_ = os.Unsetenv("AIDASTING_PASSWORD")
+	cfg := config.Get()
+	cfg.Username, cfg.PasswordHash, cfg.Password = user, string(hash), ""
+	// A one-time password from an earlier first start is now stale.
+	web.ClearInitialPassword()
+
+	if generated {
+		return p.printf("✓ Dashboard login saved. username: %s  password: %s\n  (shown once — store it in your password manager)\n", user, password)
+	}
+	return p.printf("✓ Dashboard login saved for user %s (only the bcrypt hash is stored).\n", user)
 }
 
 func setupProviderIndex(id string) int {
