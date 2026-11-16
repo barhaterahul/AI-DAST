@@ -2,8 +2,9 @@ import { useNavigate } from "react-router-dom";
 import { useMemo, useState, type FormEvent } from "react";
 import { useI18n } from "@/i18n";
 import {
+  Boxes,
   ChevronLeft,
-  FileText,
+  FileSearch,
   ImageIcon,
   KeyRound,
   Loader2,
@@ -14,7 +15,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,7 +33,7 @@ import { PHASES } from "@/components/phase-progress";
 import { api } from "@/api/client";
 import { useAuthProfiles, useLLMSettings, useProviders, useStartScan, useTokenProviders } from "@/api/queries";
 import { CollectionPreview } from "@/components/collection-preview";
-import type { ContextPreview } from "@/types/api";
+import { ContextDropzone, classifyFiles, useContextUpload, type ContextKind } from "@/components/context-upload";
 import { cn } from "@/lib/utils";
 
 const SCAN_MODES = [
@@ -97,10 +98,14 @@ export default function NewScanPage() {
   const [logoPath, setLogoPath] = useState("");
   const [logoFileName, setLogoFileName] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
-  const [contextPath, setContextPath] = useState("");
-  const [contextInfo, setContextInfo] = useState<string>("");
-  const [contextUploading, setContextUploading] = useState(false);
-  const [contextPreview, setContextPreview] = useState<ContextPreview | null>(null);
+  const security = useContextUpload();
+  const collection = useContextUpload();
+  // Shown when dropped files were routed to the other context section.
+  const [routedNote, setRoutedNote] = useState<{ kind: ContextKind; text: string } | null>(null);
+  const contextUploading = security.uploading || collection.uploading;
+  const collectionHosts = [
+    ...new Set([...(collection.preview?.base_url_list ?? []), ...(security.preview?.base_url_list ?? [])]),
+  ];
   const [tokenProvider, setTokenProvider] = useState("");
   const [tokenProfile, setTokenProfile] = useState("");
   const [tokenProfileB, setTokenProfileB] = useState("");
@@ -178,43 +183,36 @@ export default function NewScanPage() {
     }
   }
 
-  async function uploadScanContext(fileList?: FileList | null) {
-    const files = fileList ? Array.from(fileList) : [];
+  // Files dropped in the wrong section (e.g. a Postman export under Security
+  // context) are moved to the right one rather than rejected.
+  async function addContextFiles(kind: ContextKind, files: File[]) {
     if (!files.length) return;
-    setError(null);
-    const allowed = /\.(json|ya?ml|har|xml|apk|apks|xapk|aab|txt|bru|zip)$/i;
-    const isFolder = files.some((f) => f.webkitRelativePath);
-    if (isFolder) {
-      // A folder (Bruno collection) contains unrelated files (.env, .git,
-      // node_modules…); send only collection files.
-      const keep = files.filter(
-        (f) => /\.(bru|json)$/i.test(f.name) && !/(^|\/)(node_modules|\.git)\//.test(f.webkitRelativePath),
-      );
-      files.splice(0, files.length, ...keep);
-      if (!files.length) {
-        setError("That folder has no .bru or .json collection files.");
-        return;
-      }
+    const self = kind === "security" ? security : collection;
+    const peer = kind === "security" ? collection : security;
+    const { keep, other, rejected } = await classifyFiles(kind, files);
+    setRoutedNote(null);
+    self.setError(
+      rejected.length
+        ? `Unsupported: ${rejected.map((f) => f.name).join(", ")}. ${
+            kind === "security"
+              ? "Use an OpenAPI/Swagger spec (JSON/YAML), HAR, Burp XML, Android app, or .txt notes."
+              : "Use a Postman collection/environment (.json) or a Bruno collection (folder, .bru files or .zip)."
+          }`
+        : null,
+    );
+    if (keep.length) self.add(keep);
+    if (other.length) {
+      peer.add(other);
+      const peerKind: ContextKind = kind === "security" ? "collection" : "security";
+      setRoutedNote({
+        kind: peerKind,
+        text: `${other.length === 1 ? other[0].name : `${other.length} files`} moved here from ${
+          kind === "security" ? "Security context" : "API collection"
+        }.`,
+      });
     }
-    const bad = files.find((f) => !allowed.test(f.name));
-    if (bad) {
-      setError("Context must be an OpenAPI/Swagger spec, HAR, Postman collection (+ environment), Bruno collection (.bru files, folder or .zip), Burp export, or Android app.");
-      return;
-    }
-    setContextUploading(true);
-    try {
-      const res = await api.uploadContext(files);
-      setContextPath(res.path);
-      setContextPreview(res);
-      const fmts = (res.formats || []).join(", ") || "context";
-      const label = files.length === 1 ? files[0].name : `${files.length} files`;
-      setContextInfo(
-        `${label} — ${res.endpoints} endpoint${res.endpoints === 1 ? "" : "s"} seeded (${fmts})${res.has_auth ? " · auth captured" : ""}`,
-      );
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to upload context");
-    } finally {
-      setContextUploading(false);
+    if (!keep.length && !other.length && !rejected.length && files.length) {
+      self.setError("That folder has no .bru or .json collection files.");
     }
   }
 
@@ -225,7 +223,11 @@ export default function NewScanPage() {
 
   async function submitScan(saveOnly: boolean) {
     setError(null);
-    const derivedTargets = !targets.length && contextPath ? contextPreview?.base_url_list ?? [] : [];
+    if (contextUploading) {
+      setError("Wait for the context upload to finish.");
+      return;
+    }
+    const derivedTargets = !targets.length ? collectionHosts : [];
     if (!targets.length && !derivedTargets.length) {
       setError("At least one target is required (or attach a collection whose requests use absolute URLs).");
       return;
@@ -248,7 +250,8 @@ export default function NewScanPage() {
         provider_profile: providerProfile || undefined,
         company_name: companyName.trim() || undefined,
         logo_path: logoPath || undefined,
-        scan_context: contextPath || undefined,
+        scan_context: security.path || undefined,
+        api_collection: collection.path || undefined,
         target_auth: tokenProvider ? undefined : targetAuth.trim() || undefined,
         target_auth_b: tokenProvider ? undefined : targetAuthB.trim() || undefined,
         token_auth: tokenProvider
@@ -302,7 +305,7 @@ export default function NewScanPage() {
               <Label htmlFor="targets">{t("newScan.label.targets")}</Label>
               <Textarea
                 id="targets"
-                required
+                required={!collectionHosts.length}
                 placeholder={"example.com\nhttps://app.example.com"}
                 value={targetsText}
                 onChange={(e) => setTargetsText(e.target.value)}
@@ -339,114 +342,71 @@ export default function NewScanPage() {
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("newScan.section.securityContext")}</CardTitle>
+          <CardHeader className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FileSearch className="h-4 w-4 text-muted-foreground" />
+              {t("newScan.section.securityContext")}
+            </CardTitle>
+            <CardDescription className="text-xs text-pretty">
+              Specs, traffic and app builds that describe the real attack surface. AI-DAST-ING seeds
+              the scan with their endpoints, parameters and any captured session instead of relying on
+              crawling alone — the biggest single boost to black-box coverage.
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-[11px] text-muted-foreground text-pretty">
-              Attach an <span className="font-medium text-foreground">OpenAPI/Swagger spec</span>,{" "}
-              <span className="font-medium text-foreground">HAR capture</span>, or{" "}
-              <span className="font-medium text-foreground">Postman or Bruno collection</span>,{" "}
-              <span className="font-medium text-foreground">Burp export</span>, or an{" "}
-              <span className="font-medium text-foreground">Android APK</span>. AI-DAST-ING
-              seeds the scan with the target&apos;s real endpoints and parameters (and any captured
-              session), so it tests the actual attack surface instead of relying on crawling. This
-              is the single biggest boost to black-box coverage. You can attach{" "}
-              <span className="font-medium text-foreground">multiple files at once</span> — e.g. a
-              Postman collection plus its environment — and AI-DAST-ING resolves{" "}
-              <code className="text-foreground">{"{{variables}}"}</code> and auth across them.
-            </p>
-            <div className="flex items-center gap-3">
-              <label
-                htmlFor="scanContext"
-                className={cn(
-                  "inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-transparent px-3 text-xs font-medium transition-colors hover:bg-accent",
-                  contextUploading && "pointer-events-none opacity-60",
-                )}
-              >
-                {contextUploading ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Upload className="h-3.5 w-3.5" />
-                )}
-                Attach context
-              </label>
-              <Input
-                id="scanContext"
-                type="file"
-                multiple
-                accept=".json,.yaml,.yml,.har,.xml,.apk,.apks,.xapk,.aab,.txt,.bru,.zip"
-                disabled={contextUploading}
-                className="hidden"
-                onChange={(e) => {
-                  void uploadScanContext(e.currentTarget.files);
-                  e.currentTarget.value = "";
-                }}
-              />
-              <label
-                htmlFor="scanContextFolder"
-                className={cn(
-                  "inline-flex h-8 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-transparent px-3 text-xs font-medium transition-colors hover:bg-accent",
-                  contextUploading && "pointer-events-none opacity-60",
-                )}
-                title="Upload a Bruno collection folder"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                Attach folder
-              </label>
-              <input
-                id="scanContextFolder"
-                type="file"
-                multiple
-                className="hidden"
-                disabled={contextUploading}
-                {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
-                onChange={(e) => {
-                  void uploadScanContext(e.currentTarget.files);
-                  e.currentTarget.value = "";
-                }}
-              />
-              {contextPath && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400">
-                  <FileText className="h-3.5 w-3.5" />
-                  {contextInfo}
-                </span>
-              )}
-              {contextPath && (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  onClick={() => {
-                    setContextPath("");
-                    setContextInfo("");
-                    setContextPreview(null);
-                  }}
-                  aria-label="Remove attached context"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-            {contextPreview && contextPath && (contextPreview.requests?.length ?? 0) > 0 && (
+            {routedNote?.kind === "security" && <RoutedNote text={routedNote.text} onDismiss={() => setRoutedNote(null)} />}
+            <ContextDropzone
+              id="securityContext"
+              upload={security}
+              title="specs, captures or app builds"
+              accept=".json,.yaml,.yml,.har,.xml,.apk,.apks,.xapk,.aab,.txt"
+              formats={["OpenAPI / Swagger", "HAR", "Burp XML", "APK / AAB", "Notes .txt"]}
+              onFiles={(f) => void addContextFiles("security", f)}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="space-y-1.5">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Boxes className="h-4 w-4 text-muted-foreground" />
+              {t("newScan.section.apiCollection")}
+            </CardTitle>
+            <CardDescription className="text-xs text-pretty">
+              A Postman or Bruno collection. Add the Postman environment alongside it (or pick a Bruno
+              environment below) and AI-DAST-ING resolves{" "}
+              <code className="text-foreground">{"{{variables}}"}</code> and auth, then lets you choose
+              exactly which requests the scan tests.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {routedNote?.kind === "collection" && <RoutedNote text={routedNote.text} onDismiss={() => setRoutedNote(null)} />}
+            <ContextDropzone
+              id="apiCollection"
+              upload={collection}
+              allowFolder
+              title="a Postman or Bruno collection"
+              accept=".json,.bru,.zip"
+              formats={["Postman v2.x", "Postman environment", "Bruno folder", "Bruno .zip / .bru"]}
+              onFiles={(f) => void addContextFiles("collection", f)}
+            />
+            {collection.preview && !collection.uploading && (collection.preview.requests?.length ?? 0) > 0 && (
               <CollectionPreview
-                key={contextPath}
-                preview={contextPreview}
-                onChange={(p) => {
-                  setContextPreview(p);
-                  setContextInfo(`${p.endpoints} request${p.endpoints === 1 ? "" : "s"} selected (${(p.formats || []).join(", ")})`);
-                }}
+                key={collection.path}
+                preview={collection.preview}
+                onChange={(p) => collection.setPreview(p)}
                 onUseTargets={(urls) => setTargetsText(urls.join("\n"))}
               />
             )}
-            {!targets.length && (contextPreview?.base_url_list?.length ?? 0) > 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                No targets entered — the scan will use the collection&apos;s hosts:{" "}
-                <span className="mono">{contextPreview!.base_url_list!.join(", ")}</span>
-              </p>
-            )}
           </CardContent>
         </Card>
+
+        {!targets.length && collectionHosts.length > 0 && (
+          <p className="-mt-2 px-1 text-[11px] text-muted-foreground">
+            No targets entered — the scan will use the hosts from your uploads:{" "}
+            <span className="mono">{collectionHosts.join(", ")}</span>
+          </p>
+        )}
 
         <Card>
           <CardHeader>
@@ -902,7 +862,7 @@ export default function NewScanPage() {
           <Button
             type="button"
             variant="outline"
-            disabled={!targets.length || startScan.isPending}
+            disabled={(!targets.length && !collectionHosts.length) || contextUploading || startScan.isPending}
             onClick={() => void submitScan(true)}
           >
             {startScan.isPending ? (
@@ -914,7 +874,7 @@ export default function NewScanPage() {
           </Button>
           <Button
             type="submit"
-            disabled={!targets.length || startScan.isPending}
+            disabled={(!targets.length && !collectionHosts.length) || contextUploading || startScan.isPending}
           >
             {startScan.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -925,6 +885,17 @@ export default function NewScanPage() {
           </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function RoutedNote({ text, onDismiss }: { text: string; onDismiss: () => void }) {
+  return (
+    <div className="flex items-center gap-2 rounded-md border border-sky-500/30 bg-sky-500/5 px-3 py-1.5 text-[11px] text-sky-700 dark:text-sky-300">
+      <span className="flex-1">{text}</span>
+      <button type="button" onClick={onDismiss} aria-label="Dismiss" className="opacity-70 hover:opacity-100">
+        <X className="h-3 w-3" />
+      </button>
     </div>
   );
 }

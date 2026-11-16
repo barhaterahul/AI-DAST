@@ -412,6 +412,11 @@ type ScanRequest struct {
 	// The engine parses them into a seeded attack surface (real endpoints +
 	// params) and harvests any captured auth. Empty = crawl-only discovery.
 	ScanContext string `json:"scan_context"`
+	// APICollection is a separately uploaded API-client collection (Postman
+	// + environment, or Bruno) carrying the operator's request selection.
+	// handleScan folds it into ScanContext (see context_merge.go), so nothing
+	// downstream reads this field.
+	APICollection string `json:"api_collection,omitempty"`
 	// TokenAuth selects a configured token provider (see token_providers.go)
 	// that issues and refreshes the scan's credentials — e.g. a JWT from a
 	// custom token API. When set it supersedes TargetAuth/TargetAuthSecondary.
@@ -1716,6 +1721,11 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	isCodeScan, codeErr := s.resolveCodeScan(&req)
 	if codeErr != "" {
 		http.Error(w, codeErr, http.StatusBadRequest)
+		return
+	}
+
+	if err := s.resolveScanContexts(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 

@@ -269,6 +269,10 @@ export interface ScanRequest {
   // Postman collection). The engine parses it into a seeded attack surface and
   // harvests any captured auth. Set via POST /api/upload-context.
   scan_context?: string;
+  // Server-side path to a separately uploaded Postman/Bruno collection (with
+  // the operator's request selection). The server merges it with
+  // scan_context into one directory when the scan is created.
+  api_collection?: string;
   // Authenticated-session material applied automatically to http_request
   // ("Cookie: …; Authorization: Bearer …"). Enables post-login testing.
   target_auth?: string;

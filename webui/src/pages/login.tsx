@@ -154,9 +154,6 @@ export default function LoginPage() {
               </form>
             </CardContent>
           </Card>
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Protected by CSRF · Session cookies are HTTP-only
-          </p>
         </div>
       </div>
     </div>
