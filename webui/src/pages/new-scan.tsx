@@ -34,6 +34,7 @@ import { api } from "@/api/client";
 import { useAuthProfiles, useLLMSettings, useProviders, useStartScan, useTokenProviders } from "@/api/queries";
 import { CollectionPreview } from "@/components/collection-preview";
 import { ContextDropzone, classifyFiles, useContextUpload, type ContextKind } from "@/components/context-upload";
+import { ScopeHostList, computeScope, mergeUploadHosts } from "@/components/scope-hosts";
 import { cn } from "@/lib/utils";
 
 const SCAN_MODES = [
@@ -103,9 +104,14 @@ export default function NewScanPage() {
   // Shown when dropped files were routed to the other context section.
   const [routedNote, setRoutedNote] = useState<{ kind: ContextKind; text: string } | null>(null);
   const contextUploading = security.uploading || collection.uploading;
-  const collectionHosts = [
-    ...new Set([...(collection.preview?.base_url_list ?? []), ...(security.preview?.base_url_list ?? [])]),
-  ];
+  const uploadHosts = useMemo(
+    () => mergeUploadHosts(collection.preview, security.preview),
+    [collection.preview, security.preview],
+  );
+  // Explicit host ticks, keyed by base URL; everything else uses the default.
+  const [hostOverrides, setHostOverrides] = useState<Record<string, boolean>>({});
+  const unresolvedHostRequests =
+    (collection.preview?.unresolved_host_requests ?? 0) + (security.preview?.unresolved_host_requests ?? 0);
   const [tokenProvider, setTokenProvider] = useState("");
   const [tokenProfile, setTokenProfile] = useState("");
   const [tokenProfileB, setTokenProfileB] = useState("");
@@ -124,6 +130,10 @@ export default function NewScanPage() {
         .map((s) => s.trim())
         .filter(Boolean),
     [targetsText],
+  );
+  const scope = useMemo(
+    () => computeScope(targets, uploadHosts, hostOverrides),
+    [targets, uploadHosts, hostOverrides],
   );
 
   // Profile picker source. Profiles drive the picker; the catalog
@@ -227,9 +237,12 @@ export default function NewScanPage() {
       setError("Wait for the context upload to finish.");
       return;
     }
-    const derivedTargets = !targets.length ? collectionHosts : [];
-    if (!targets.length && !derivedTargets.length) {
-      setError("At least one target is required (or attach a collection whose requests use absolute URLs).");
+    if (!scope.finalTargets.length) {
+      setError(
+        uploadHosts.length
+          ? "No host is in scope. Tick at least one host from your uploads or type a target."
+          : "At least one target is required (or attach a collection whose requests use absolute URLs).",
+      );
       return;
     }
     if (tokenProvider && !tokenProfile && tokenProfiles.length > 0) {
@@ -238,7 +251,7 @@ export default function NewScanPage() {
     }
     try {
       const res = await startScan.mutateAsync({
-        targets,
+        targets: scope.finalTargets,
         name: name.trim() || undefined,
         scan_mode: scanMode,
         instruction: instruction.trim() || undefined,
@@ -302,10 +315,12 @@ export default function NewScanPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="targets">{t("newScan.label.targets")}</Label>
+              <Label htmlFor="targets">
+                {uploadHosts.length ? t("newScan.label.targetsOptional") : t("newScan.label.targets")}
+              </Label>
               <Textarea
                 id="targets"
-                required={!collectionHosts.length}
+                required={!uploadHosts.length}
                 placeholder={"example.com\nhttps://app.example.com"}
                 value={targetsText}
                 onChange={(e) => setTargetsText(e.target.value)}
@@ -313,7 +328,9 @@ export default function NewScanPage() {
                 className="mono text-xs"
               />
               <p className="text-[11px] text-muted-foreground">
-                One per line, or comma-separated. Domains, hosts, or URLs.
+                {uploadHosts.length
+                  ? "Optional — the hosts ticked below come from your uploads. Add any other host to scan here."
+                  : "One per line, or comma-separated. Domains, hosts, or URLs. Uploading a collection or spec can fill this in."}
               </p>
               {targets.length > 1 && (
                 <div className="flex flex-wrap gap-1">
@@ -329,6 +346,15 @@ export default function NewScanPage() {
                 </div>
               )}
             </div>
+            <ScopeHostList
+              hosts={uploadHosts}
+              checked={scope.checked}
+              onToggle={(h, on) => setHostOverrides((cur) => ({ ...cur, [h.base_url]: on }))}
+              environment={collection.preview?.environment || undefined}
+              unresolved={unresolvedHostRequests}
+              skippedRequests={scope.skippedRequests}
+              unusedTyped={scope.unusedTyped}
+            />
             <div className="space-y-2">
               <Label htmlFor="name">{t("newScan.label.displayName")}</Label>
               <Input
@@ -395,18 +421,10 @@ export default function NewScanPage() {
                 key={collection.path}
                 preview={collection.preview}
                 onChange={(p) => collection.setPreview(p)}
-                onUseTargets={(urls) => setTargetsText(urls.join("\n"))}
               />
             )}
           </CardContent>
         </Card>
-
-        {!targets.length && collectionHosts.length > 0 && (
-          <p className="-mt-2 px-1 text-[11px] text-muted-foreground">
-            No targets entered — the scan will use the hosts from your uploads:{" "}
-            <span className="mono">{collectionHosts.join(", ")}</span>
-          </p>
-        )}
 
         <Card>
           <CardHeader>
@@ -862,7 +880,7 @@ export default function NewScanPage() {
           <Button
             type="button"
             variant="outline"
-            disabled={(!targets.length && !collectionHosts.length) || contextUploading || startScan.isPending}
+            disabled={!scope.finalTargets.length || contextUploading || startScan.isPending}
             onClick={() => void submitScan(true)}
           >
             {startScan.isPending ? (
@@ -874,7 +892,7 @@ export default function NewScanPage() {
           </Button>
           <Button
             type="submit"
-            disabled={(!targets.length && !collectionHosts.length) || contextUploading || startScan.isPending}
+            disabled={!scope.finalTargets.length || contextUploading || startScan.isPending}
           >
             {startScan.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

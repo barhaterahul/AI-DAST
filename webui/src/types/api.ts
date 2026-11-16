@@ -371,6 +371,15 @@ export interface ContextPreviewRequest {
   token_candidate?: boolean;
 }
 
+/** One host referenced by an uploaded context (server-classified). */
+export interface ContextHost {
+  base_url: string;
+  host: string;
+  requests: number;
+  third_party: boolean;
+  reason?: string;
+}
+
 export interface ContextPreview {
   path: string;
   filename?: string;
@@ -387,6 +396,9 @@ export interface ContextPreview {
   /** Environment actually used (first by name unless one was chosen). */
   environment?: string;
   missing_vars?: string[];
+  hosts?: ContextHost[];
+  /** Requests whose host is still a {{variable}}. */
+  unresolved_host_requests?: number;
   scripts_skipped?: number;
   excluded?: number;
   requests?: ContextPreviewRequest[];

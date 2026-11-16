@@ -1743,6 +1743,13 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "targets required (or provide source_repo with code_scan=review|provision)", http.StatusBadRequest)
 		return
 	}
+	// The scan's own context copy only keeps endpoints on its targets' hosts,
+	// so third-party services named in a collection or capture are never
+	// handed to the agent as attack surface.
+	if err := s.writeContextScope(req.ScanContext, req.Targets, strings.EqualFold(req.ScanMode, "wildcard")); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	normalizeScanRequestActivity(&req)
 
 	// Reject up front when every requested target is a local/internal IP or
