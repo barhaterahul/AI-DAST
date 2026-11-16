@@ -109,6 +109,7 @@ const en: Dict = {
   "newScan.label.targets": "Targets *",
   "newScan.label.displayName": "Display name (optional)",
   "newScan.section.securityContext": "Security context (optional)",
+  "newScan.section.apiCollection": "API collection (optional)",
   "newScan.section.authAccess": "Authenticated access (optional)",
   "newScan.label.authSession": "Authenticated session",
   "newScan.label.secondAccount": "Second account (for IDOR/BOLA proof)",
