@@ -525,7 +525,7 @@ The dashboard's own listener is **always** protected, even with this enabled.
 
 1. Open the dashboard at `http://127.0.0.1:9137`.
 2. Go to Settings and confirm the LLM provider, API key, rate limits, and optional integrations.
-3. Create a scan from New Scan.
+3. Create a scan from New Scan. Optionally attach **Security context** (OpenAPI/Swagger, HAR, Burp, APK) and an **API collection** (Postman + environment, or Bruno). With a collection attached, Targets is optional: the hosts the requests call (after the chosen environment is applied) are listed under Targets. Hosts on your app's domain are ticked; third-party services (identity providers, payment gateways, other domains) are left unticked and their requests are removed from the attack surface. Typed targets take precedence: then only matching hosts are ticked by default.
 4. Choose a scan mode.
 5. Select methodology phases when you want a focused run.
 6. Set severity filters when only certain severities should be reported live. The filter affects the real-time dashboard feed and notifications only; the PDF report and `/api/findings` always include every vulnerability the agent discovered.

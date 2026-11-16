@@ -108,6 +108,7 @@ const en: Dict = {
   "newScan.heading": "Start a new scan",
   "newScan.section.targets": "Targets",
   "newScan.label.targets": "Targets *",
+  "newScan.label.targetsOptional": "Targets (optional)",
   "newScan.label.displayName": "Display name (optional)",
   "newScan.section.securityContext": "Security context (optional)",
   "newScan.section.apiCollection": "API collection (optional)",

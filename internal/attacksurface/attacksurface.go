@@ -66,6 +66,7 @@ type Result struct {
 	Environments   []string // environment names available for selection
 	Environment    string   // environment actually used
 	MissingVars    []string // {{variables}} that could not be resolved
+	OutOfScope     int      // endpoints dropped because their host is outside the scan scope
 	ScriptsSkipped int      // pre-request/test scripts present but never executed
 	Excluded       int      // requests dropped by the operator's selection
 }
@@ -176,6 +177,9 @@ func LoadFromPath(path string) (*Result, error) {
 	}
 
 	merged.finalize()
+	if len(opts.Hosts) > 0 {
+		merged.RestrictToHosts(opts.Hosts, opts.IncludeSubdomains)
+	}
 	// BaseURLs count as usable context: an artifact can yield backend hosts
 	// without concrete paths (common for APKs that build request paths at
 	// runtime), and those hosts still seed the attack surface. Only fail when
@@ -845,6 +849,9 @@ func (r *Result) Briefing() string {
 	}
 	if len(r.BaseURLs) > 0 {
 		b.WriteString("Base URL(s): " + strings.Join(r.BaseURLs, ", ") + "\n")
+	}
+	if r.OutOfScope > 0 {
+		b.WriteString(fmt.Sprintf("Scope: %d uploaded request(s) pointed at hosts the operator did not put in scope (third-party services or unselected hosts) and were removed. Do NOT send requests to hosts that are not scan targets.\n", r.OutOfScope))
 	}
 	if len(r.AuthHeaders) > 0 {
 		names := make([]string, 0, len(r.AuthHeaders))

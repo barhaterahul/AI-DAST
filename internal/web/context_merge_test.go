@@ -109,21 +109,39 @@ func TestResolveScanContextsMergesCollectionAndSecurityContext(t *testing.T) {
 
 func TestResolveScanContextsSingleAndInvalid(t *testing.T) {
 	s := &Server{dataDir: t.TempDir()}
-	coll := newContextUpload(t, s, map[string]string{"users/ping.bru": mergeBru})
+	coll := newContextUpload(t, s, map[string]string{"users/ping.bru": mergeBru, "selection.json": `{"env":"dev"}`})
 
+	// A single upload still gets the scan's own copy, so writing the scan
+	// scope never touches the upload.
 	req := ScanRequest{APICollection: coll}
-	if err := s.resolveScanContexts(&req); err != nil || req.ScanContext != coll {
+	if err := s.resolveScanContexts(&req); err != nil || req.ScanContext == "" || req.ScanContext == coll {
 		t.Fatalf("collection only: ctx=%q err=%v", req.ScanContext, err)
+	}
+	if !pathExists(filepath.Join(req.ScanContext, "users", "ping.bru")) {
+		t.Fatal("collection layout not copied")
+	}
+	if err := s.writeContextScope(req.ScanContext, []string{"https://api.test"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got := attacksurface.ReadSelection(req.ScanContext); got.Env != "dev" || len(got.Hosts) != 1 || got.Hosts[0] != "api.test" {
+		t.Fatalf("scope must extend the copied selection: %+v", got)
+	}
+	if got := attacksurface.ReadSelection(coll); len(got.Hosts) != 0 {
+		t.Fatalf("upload selection modified: %+v", got)
 	}
 
 	sec := newContextUpload(t, s, map[string]string{"openapi.json": mergeOpenAPI})
 	req = ScanRequest{ScanContext: sec}
-	if err := s.resolveScanContexts(&req); err != nil || req.ScanContext != sec {
+	if err := s.resolveScanContexts(&req); err != nil || req.ScanContext == sec || !pathExists(filepath.Join(req.ScanContext, "openapi.json")) {
 		t.Fatalf("security only: ctx=%q err=%v", req.ScanContext, err)
 	}
 
-	req = ScanRequest{ScanContext: sec, APICollection: t.TempDir()}
-	if err := s.resolveScanContexts(&req); err == nil {
-		t.Fatal("collection outside the context root must be rejected")
+	for _, bad := range []ScanRequest{
+		{ScanContext: sec, APICollection: t.TempDir()},
+		{ScanContext: "/etc"}, // raw filesystem paths are no longer accepted
+	} {
+		if err := s.resolveScanContexts(&bad); err == nil {
+			t.Fatalf("path outside the context root must be rejected: %+v", bad)
+		}
 	}
 }

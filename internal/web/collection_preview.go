@@ -59,20 +59,22 @@ func contextPreview(res *attacksurface.Result) map[string]any {
 		reqs = append(reqs, pr)
 	}
 	return map[string]any{
-		"endpoints":       len(res.Endpoints),
-		"formats":         res.Formats,
-		"has_auth":        len(res.AuthHeaders) > 0,
-		"auth_headers":    authNames,
-		"base_urls":       len(res.BaseURLs), // count (kept for older clients)
-		"base_url_list":   res.BaseURLs,
-		"notes":           res.Notes,
-		"environments":    res.Environments,
-		"environment":     res.Environment,
-		"missing_vars":    res.MissingVars,
-		"scripts_skipped": res.ScriptsSkipped,
-		"excluded":        res.Excluded,
-		"requests":        reqs,
-		"truncated":       len(res.Endpoints) > maxPreviewRequests,
+		"endpoints":                len(res.Endpoints),
+		"formats":                  res.Formats,
+		"has_auth":                 len(res.AuthHeaders) > 0,
+		"auth_headers":             authNames,
+		"base_urls":                len(res.BaseURLs), // count (kept for older clients)
+		"base_url_list":            res.BaseURLs,
+		"notes":                    res.Notes,
+		"environments":             res.Environments,
+		"environment":              res.Environment,
+		"missing_vars":             res.MissingVars,
+		"hosts":                    res.Hosts(),
+		"unresolved_host_requests": res.UnresolvedHostRequests(),
+		"scripts_skipped":          res.ScriptsSkipped,
+		"excluded":                 res.Excluded,
+		"requests":                 reqs,
+		"truncated":                len(res.Endpoints) > maxPreviewRequests,
 	}
 }
 
@@ -144,6 +146,9 @@ func (s *Server) handleCollectionResolve(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	opts := attacksurface.Options{Env: strings.TrimSpace(req.Env), Vars: vars, Exclude: req.Exclude}
+	// A scan's host scope is set at scan start, not by this editor; keep it.
+	prev := attacksurface.ReadSelection(dir)
+	opts.Hosts, opts.IncludeSubdomains = prev.Hosts, prev.IncludeSubdomains
 	if err := attacksurface.WriteSelection(dir, opts); err != nil {
 		writeJSONStatus(w, http.StatusInternalServerError, map[string]string{"error": "could not save selection"})
 		return
@@ -162,8 +167,10 @@ func (s *Server) handleCollectionResolve(w http.ResponseWriter, r *http.Request)
 // maxDerivedTargets bounds how many hosts a collection can turn into targets.
 const maxDerivedTargets = 20
 
-// targetsFromContext returns the base URLs of an uploaded context, used as
-// scan targets when the operator entered none.
+// targetsFromContext returns the first-party base URLs of an uploaded
+// context, used as scan targets when the operator entered none. Hosts
+// classified as third-party (identity providers, payment gateways, other
+// domains) are never chosen implicitly.
 func (s *Server) targetsFromContext(p string) []string {
 	dir, err := s.resolveContextDir(p)
 	if err != nil {
@@ -173,7 +180,7 @@ func (s *Server) targetsFromContext(p string) []string {
 	if res == nil {
 		return nil
 	}
-	out := append([]string(nil), res.BaseURLs...)
+	out := res.FirstPartyBaseURLs()
 	if len(out) > maxDerivedTargets {
 		out = out[:maxDerivedTargets]
 	}

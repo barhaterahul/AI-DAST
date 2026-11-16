@@ -34,6 +34,12 @@ type Options struct {
 	Vars map[string]string `json:"vars,omitempty"`
 	// Exclude lists request IDs (Endpoint.ID) to drop from the surface.
 	Exclude []string `json:"exclude,omitempty"`
+	// Hosts, when set, is the scan's host scope: endpoints on any other
+	// absolute host are dropped (see hosts.go). Written at scan start into
+	// the scan's own copy of the context, never into an upload.
+	Hosts []string `json:"hosts,omitempty"`
+	// IncludeSubdomains also keeps subdomains of Hosts (wildcard scans).
+	IncludeSubdomains bool `json:"include_subdomains,omitempty"`
 }
 
 // ReadSelection loads <dir>/selection.json (zero Options when absent).
